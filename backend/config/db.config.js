@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import dns from 'dns';
 import { ENV_VARS } from './env.config.js';
 import { getCurrentDateTime } from '../helpers/helper.js';
+
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 /**
  * Establishes a connection to MongoDB using the provided URI from the environment variables.
