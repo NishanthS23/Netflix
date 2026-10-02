@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.route.js';
 import movieRoutes from './routes/movie.route.js';
 import tvRoutes from './routes/tv.route.js';
 import searchRoutes from './routes/search.route.js';
+import customVideoRoutes from './routes/customVideo.route.js';
 
 /**
  * Resolves the absolute path of the current directory.
@@ -58,6 +59,7 @@ export const expressServer = () => {
   app.use('/api/v1/movie', protectedRoute, movieRoutes);
   app.use('/api/v1/tv', protectedRoute, tvRoutes);
   app.use('/api/v1/search', protectedRoute, searchRoutes);
+  app.use('/api/v1/custom-videos', customVideoRoutes);
 
   // Serves the production build of the frontend if the NODE_ENV environment variable is set to "production".
   if (ENV_VARS.NODE_ENV === 'production') {

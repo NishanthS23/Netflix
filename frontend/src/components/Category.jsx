@@ -16,8 +16,12 @@ const Category = ({ category }) => {
   useEffect(() => {
     // Fetch content based on category and set it in the content store
     const getContent = async () => {
-      const res = await axios.get(`/api/v1/${contentType}/${category}`);
-      setContent(res.data.content);
+      try {
+        const res = await axios.get(`/api/v1/${contentType}/${category}`);
+        setContent(res.data.content);
+      } catch (error) {
+        console.error(`Error fetching category ${category}:`, error);
+      }
     };
     getContent();
   }, [category, contentType]);

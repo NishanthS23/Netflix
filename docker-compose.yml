@@ -1,0 +1,72 @@
+services:
+  # Database Service (MongoDB)
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    container_name: netflix-db
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: netflix
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - netflix-network
+
+  # Backend Service (Node.js & Express)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: netflix-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - SERVER_PORT=8000
+      - MONGO_URI=mongodb://db:27017/netflix
+      - CLIENT_URL=http://localhost
+      - JWT_SECRET=${JWT_SECRET:-netflix_super_secret_jwt_key_2026}
+      - TMDB_API_KEY=${TMDB_API_KEY:-}
+      - MAILTRAP_TOKEN=${MAILTRAP_TOKEN:-}
+      - MAILTRAP_ENDPOINT=${MAILTRAP_ENDPOINT:-}
+    volumes:
+      - video_uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - netflix-network
+
+  # Frontend Service (React + Vite served via Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: netflix-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - netflix-network
+
+volumes:
+  mongo_data:
+    driver: local
+  video_uploads:
+    driver: local
+
+networks:
+  netflix-network:
+    driver: bridge

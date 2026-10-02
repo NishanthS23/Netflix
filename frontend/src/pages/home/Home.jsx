@@ -4,6 +4,7 @@ import { Info, Play } from 'lucide-react';
 
 import Navbar from '../../components/Navbar';
 import Category from '../../components/Category';
+import CustomVideoSlider from '../../components/CustomVideoSlider';
 import HomeScreenSkeleton from '../../components/skeletons/HomeScreenSkeleton';
 import useGetTrendingContent from '../../hooks/useGetTrendingContent';
 import { MOVIE_CATEGORIES, ORIGIN_IMG_BASE_URL, TV_CATEGORIES } from '../../utils/constants.js';
@@ -65,6 +66,7 @@ const Home = () => {
 
       {/* Categories slider */}
       <div className="flex flex-col gap-2 md:gap-8 py-10 bg-black">
+        <CustomVideoSlider />
         {contentType === 'movie'
           ? MOVIE_CATEGORIES.map((category) => <Category key={category} category={category} />)
           : TV_CATEGORIES.map((category) => <Category key={category} category={category} />)}
