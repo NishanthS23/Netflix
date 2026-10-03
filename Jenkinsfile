@@ -1,10 +1,14 @@
 pipeline {
     agent any
 
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
     stages {
         stage('Checkout Source') {
             steps {
-                checkout scm
+                git branch: 'main', url: 'https://github.com/NishanthS23/Netflix.git'
             }
         }
 
