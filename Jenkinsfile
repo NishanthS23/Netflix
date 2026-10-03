@@ -48,15 +48,16 @@ pipeline {
     }
 
     post {
-        always {
-            sh 'docker image prune -f'
+        cleanup {
+            node('') {
+                sh 'docker image prune -f || true'
+            }
         }
         success {
             echo "Netflix Clone deployed successfully to EC2!"
         }
         failure {
-            echo "Deployment failed. Docker container logs:"
-            sh 'docker compose logs --tail=50'
+            echo "Deployment failed. Check docker logs."
         }
     }
 }
