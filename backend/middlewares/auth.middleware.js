@@ -14,8 +14,8 @@ import { ENV_VARS } from '../config/env.config.js';
  *                      If an error occurs during token verification, returns an internal server error response.
  */
 export const verifyToken = async (req, res, next) => {
-  // Extract the authentication token from the cookie
-  const token = req.cookies.netflixToken;
+  // Extract the authentication token from the cookie or authorization header
+  const token = req.cookies.netflixToken || req.headers.authorization?.replace(/^Bearer\s+/, '');
 
   // If no token is present, return an unauthorized response
   if (!token) {

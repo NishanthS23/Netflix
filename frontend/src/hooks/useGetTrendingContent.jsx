@@ -12,22 +12,14 @@ const useGetTrendingContent = () => {
     const getTrendingContent = async () => {
       try {
         const res = await axios.get(`/api/v1/${contentType}/trending`);
-        setTrendingContent(res.data.content || {
-          id: 533535,
-          title: 'Deadpool & Wolverine',
-          overview:
-            'A listless Wade Wilson toils away in civilian life with his days as the morally flexible mercenary, Deadpool, behind him.',
-          backdrop_path: '/yDHYTjA3R0neIXvuistDit4qA0m.jpg',
-          release_date: '2024-07-24',
-          adult: false,
-        });
+        setTrendingContent(res.data.content);
       } catch (error) {
         console.error('Error fetching trending content:', error);
         setTrendingContent({
           id: 533535,
           title: 'Deadpool & Wolverine',
           overview:
-            'A listless Wade Wilson toils away in civilian life with his days as the morally flexible mercenary, Deadpool, behind him.',
+            'A listless Wade Wilson toils away in civilian life with his days as the morally flexible mercenary, Deadpool, behind him. But when his homeworld faces an existential threat, Wade must reluctantly suit-up again with an even more reluctant Wolverine.',
           backdrop_path: '/yDHYTjA3R0neIXvuistDit4qA0m.jpg',
           release_date: '2024-07-24',
           adult: false,

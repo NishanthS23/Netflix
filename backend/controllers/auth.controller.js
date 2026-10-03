@@ -165,12 +165,15 @@ export const verifyEmail = async (req, res) => {
     user.verificationExpiresAt = undefined;
     await user.save();
 
+    // generate token and set cookie for verified session
+    const token = generateTokenAndSetCookie(user._id, res);
+
     // send welcome email to the user, and send success message
     await sendWelcomeEmail(user.email, user.username);
     res.status(200).json({
       status: 'success',
       message: 'Account verified successfully',
-      user: { ...user._doc, password: undefined },
+      user: { ...user._doc, password: undefined, accessToken: token },
     });
   } catch (error) {
     // log error and return error message in response

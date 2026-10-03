@@ -4,8 +4,8 @@ import { ENV_VARS } from '../config/env.config.js';
 
 export const protectedRoute = async (req, res, next) => {
   try {
-    // Extract the authentication token from the cookie
-    const token = req.cookies.netflixToken;
+    // Extract the authentication token from the cookie or authorization header
+    const token = req.cookies.netflixToken || req.headers.authorization?.replace(/^Bearer\s+/, '');
 
     // If no token is present, return an unauthorized response
     if (!token) {
