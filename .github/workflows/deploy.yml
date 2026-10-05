@@ -15,11 +15,18 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Sanitize Secrets
+        run: |
+          CLEAN_USER=$(echo "${{ secrets.EC2_USER }}" | tr -d '\r\n ')
+          CLEAN_HOST=$(echo "${{ secrets.EC2_HOST }}" | tr -d '\r\n ')
+          echo "EC2_USER=$CLEAN_USER" >> $GITHUB_ENV
+          echo "EC2_HOST=$CLEAN_HOST" >> $GITHUB_ENV
+
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
+          host: ${{ env.EC2_HOST }}
+          username: ${{ env.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           timeout: 120s
@@ -43,7 +50,7 @@ jobs:
             NODE_ENV=production
             SERVER_PORT=8000
             MONGO_URI=mongodb://db:27017/netflix
-            CLIENT_URL=http://${{ secrets.EC2_HOST }}
+            CLIENT_URL=http://${{ env.EC2_HOST }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}
             MAILTRAP_TOKEN=${{ secrets.MAILTRAP_TOKEN }}
