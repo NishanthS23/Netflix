@@ -1,0 +1,64 @@
+name: Deploy Netflix Clone to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 120s
+          script_stop: true
+          script: |
+            set -e
+
+            echo "=== 1. Checking project directory ==="
+            PROJECT_DIR="$HOME/netflix-clone"
+            if [ ! -d "$PROJECT_DIR" ]; then
+              git clone https://github.com/NishanthS23/Netflix.git "$PROJECT_DIR"
+            fi
+            cd "$PROJECT_DIR"
+
+            echo "=== 2. Pulling latest changes from main ==="
+            git fetch --all
+            git reset --hard origin/main
+
+            echo "=== 3. Writing .env file ==="
+            cat << 'EOF' > .env
+            NODE_ENV=production
+            SERVER_PORT=8000
+            MONGO_URI=mongodb://db:27017/netflix
+            CLIENT_URL=http://${{ secrets.EC2_HOST }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}
+            MAILTRAP_TOKEN=${{ secrets.MAILTRAP_TOKEN }}
+            MAILTRAP_ENDPOINT=${{ secrets.MAILTRAP_ENDPOINT }}
+            EOF
+
+            echo "=== 4. Starting Docker Compose build and deployment ==="
+            docker compose --env-file .env up -d --build --remove-orphans
+
+            echo "=== 5. Health Check ==="
+            sleep 15
+            docker ps
+            curl -f http://localhost:80 || (echo "Health check failed on port 80!" && exit 1)
+
+            echo "=== 6. Cleanup dangling images ==="
+            docker image prune -f || true
+
+            echo "=== Netflix Clone deployed successfully! ==="
