@@ -60,10 +60,49 @@ jobs:
             echo "=== 4. Starting Docker Compose build and deployment ==="
             docker compose --env-file .env up -d --build --remove-orphans
 
-            echo "=== 5. Health Check ==="
+            echo "=== 5. Verifying All Three Containers Are Running ==="
             sleep 15
-            docker ps
-            curl -f http://localhost:80 || (echo "Health check failed on port 80!" && exit 1)
+
+            REQUIRED_CONTAINERS=("netflix-frontend" "netflix-backend" "netflix-db")
+            ALL_OK=true
+
+            echo "--- Container Status Checks ---"
+            for c in "${REQUIRED_CONTAINERS[@]}"; do
+              STATUS=$(docker inspect --format '{{.State.Status}}' "$c" 2>/dev/null || echo "not_found")
+              HEALTH=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$c" 2>/dev/null || echo "none")
+
+              if [ "$STATUS" = "running" ]; then
+                if [ "$HEALTH" = "unhealthy" ]; then
+                  echo "❌ Container $c is RUNNING but UNHEALTHY"
+                  ALL_OK=false
+                elif [ "$HEALTH" = "healthy" ]; then
+                  echo "✅ Container $c is RUNNING and HEALTHY"
+                else
+                  echo "✅ Container $c is RUNNING"
+                fi
+              else
+                echo "❌ Container $c is NOT RUNNING (Status: $STATUS)"
+                echo "--- Logs for $c ---"
+                docker logs "$c" --tail 25 || true
+                ALL_OK=false
+              fi
+            done
+
+            echo "--- HTTP Port 80 Check ---"
+            if curl -fs http://localhost:80 > /dev/null; then
+              echo "✅ Frontend HTTP check passed (Port 80 responding)"
+            else
+              echo "❌ Frontend HTTP check failed (Port 80)"
+              ALL_OK=false
+            fi
+
+            if [ "$ALL_OK" = false ]; then
+              echo "❌ Health check failed! One or more containers are down or unhealthy."
+              docker ps -a
+              exit 1
+            fi
+
+            echo "🎉 Health Check Passed: All 3 containers are active and operational!"
 
             echo "=== 6. Cleanup dangling images ==="
             docker image prune -f || true
