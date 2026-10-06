@@ -15,9 +15,16 @@
   5. Deploy backend changes directly to EC2 and test with curl and logs.
 
 ## Tasks
-- [ ] 1. Update `backend/config/db.config.js` to ensure `views INT DEFAULT 0` column exists on `custom_videos`
-- [ ] 2. Update `backend/models/customVideo.model.js` to add `toObject()`, `toJSON()`, `views` field handling in constructor, `mapRowToCustomVideo`, and `save()`
-- [ ] 3. Update `backend/models/user.model.js` to add `toObject()` and `toJSON()` methods
-- [ ] 4. Update `backend/controllers/customVideo.controller.js` with defensive `.toObject()` checks and proper views initialization
-- [ ] 5. Push changes to git repository and deploy / rebuild backend container on EC2
-- [ ] 6. Verify `GET /api/v1/custom-videos` and `GET /api/v1/custom-videos/:id` return HTTP 200 without errors
+- [x] 1. Update `backend/config/db.config.js` to ensure `views INT DEFAULT 0` column exists on `custom_videos`
+- [x] 2. Update `backend/models/customVideo.model.js` to add `toObject()`, `toJSON()`, `views` field handling in constructor, `mapRowToCustomVideo`, and `save()`
+- [x] 3. Update `backend/models/user.model.js` to add `toObject()` and `toJSON()` methods
+- [x] 4. Update `backend/controllers/customVideo.controller.js` with defensive `.toObject()` checks and proper views initialization
+- [x] 5. Push changes to git repository and deploy / rebuild backend container on EC2
+- [x] 6. Verify `GET /api/v1/custom-videos` and `GET /api/v1/custom-videos/:id` return HTTP 200 without errors
+
+## Review & Verification
+- `GET /api/v1/custom-videos`: Returns `HTTP 200` with the custom videos list.
+- `GET /api/v1/custom-videos/:id`: Returns `HTTP 200` with the video object and increments view count in RDS.
+- `GET /api/v1/custom-videos/stream/:id`: Returns `HTTP 206 Partial Content` with `Content-Range` and `video/mp4`.
+- `GET /api/v1/custom-videos/thumbnail/:id`: Returns `HTTP 200` with `image/png`.
+- All routes verified directly through nginx reverse proxy (port 80) and Express server (port 8000).
