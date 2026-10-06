@@ -32,45 +32,50 @@ export const connectDB = async () => {
     console.log('PostgreSQL connection established successfully, ' + getCurrentDateTime());
 
     // Auto-create required tables if they do not exist
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id VARCHAR(64) PRIMARY KEY,
-        username VARCHAR(255) UNIQUE NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        is_verified BOOLEAN DEFAULT FALSE,
-        last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        profile_pic VARCHAR(255) DEFAULT '/avatar1.png',
-        search_history JSONB DEFAULT '[]'::jsonb,
-        reset_password_token VARCHAR(255),
-        reset_password_expires_at TIMESTAMP,
-        verification_token VARCHAR(255),
-        verification_expires_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id VARCHAR(64) PRIMARY KEY,
+          username VARCHAR(255) UNIQUE NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          password VARCHAR(255) NOT NULL,
+          is_verified BOOLEAN DEFAULT FALSE,
+          last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          profile_pic VARCHAR(255) DEFAULT '/avatar1.png',
+          search_history JSONB DEFAULT '[]'::jsonb,
+          reset_password_token VARCHAR(255),
+          reset_password_expires_at TIMESTAMP,
+          verification_token VARCHAR(255),
+          verification_expires_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
 
-      CREATE TABLE IF NOT EXISTS custom_videos (
-        id VARCHAR(64) PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        description TEXT DEFAULT '',
-        category VARCHAR(100) DEFAULT 'General',
-        video_path VARCHAR(500),
-        video_file_id VARCHAR(64),
-        video_filename VARCHAR(255) NOT NULL,
-        video_content_type VARCHAR(100) DEFAULT 'video/mp4',
-        video_size BIGINT NOT NULL,
-        thumbnail_path VARCHAR(500),
-        thumbnail_file_id VARCHAR(64),
-        user_id VARCHAR(64) NOT NULL,
-        username VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    client.release();
-    console.log('PostgreSQL tables initialized and ready.');
+        CREATE TABLE IF NOT EXISTS custom_videos (
+          id VARCHAR(64) PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          description TEXT DEFAULT '',
+          category VARCHAR(100) DEFAULT 'General',
+          video_path VARCHAR(500),
+          video_file_id VARCHAR(64),
+          video_filename VARCHAR(255) NOT NULL,
+          video_content_type VARCHAR(100) DEFAULT 'video/mp4',
+          video_size BIGINT NOT NULL,
+          thumbnail_path VARCHAR(500),
+          thumbnail_file_id VARCHAR(64),
+          user_id VARCHAR(64) NOT NULL,
+          username VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      console.log('PostgreSQL tables initialized and ready.');
+    } catch (tableErr) {
+      // Ignore concurrent table creation race condition in cluster mode
+      if (!tableErr.message.includes('duplicate key') && !tableErr.message.includes('already exists')) {
+        console.warn('Notice on table initialization:', tableErr.message);
+      }
+    }
   } catch (error) {
     console.error(`Error connecting to PostgreSQL: ${error.message}`);
     process.exit(1);
