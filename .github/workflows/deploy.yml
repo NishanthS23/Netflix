@@ -49,12 +49,18 @@ jobs:
             cat << 'EOF' > .env
             NODE_ENV=production
             SERVER_PORT=8000
-            MONGO_URI=mongodb://db:27017/netflix
             CLIENT_URL=http://${{ env.EC2_HOST }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}
             MAILTRAP_TOKEN=${{ secrets.MAILTRAP_TOKEN }}
             MAILTRAP_ENDPOINT=${{ secrets.MAILTRAP_ENDPOINT }}
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DB_HOST=${{ secrets.DB_HOST || 'netflix-db-cluster.czg2ay4ugjsp.us-east-2.rds.amazonaws.com' }}
+            DB_PORT=5432
+            DB_USER=${{ secrets.DB_USER || 'nishanth' }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ secrets.DB_NAME || 'netflix' }}
+            DB_SSL=true
             EOF
 
             echo "=== 4. Starting Docker Compose build and deployment ==="

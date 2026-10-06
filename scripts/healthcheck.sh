@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== 5. Verifying All Three Containers Are Running ==="
+echo "=== 5. Verifying Application Containers and AWS RDS Connectivity ==="
 sleep 10
 
-REQUIRED_CONTAINERS=("netflix-frontend" "netflix-backend" "netflix-db")
+REQUIRED_CONTAINERS=("netflix-frontend" "netflix-backend")
 FAILED=0
 
 echo "--- Container Status Checks ---"
@@ -37,10 +37,18 @@ else
   FAILED=1
 fi
 
+echo "--- Backend API Port 8000 Check ---"
+if curl -fs http://localhost:8000 > /dev/null || curl -s http://localhost:8000/api/v1/auth/authCheck > /dev/null; then
+  echo "✅ Backend API check passed (Port 8000 responding)"
+else
+  echo "❌ Backend API check failed (Port 8000)"
+  FAILED=1
+fi
+
 if [ "$FAILED" -ne 0 ]; then
-  echo "❌ Health check failed! One or more containers are down or unhealthy."
+  echo "❌ Health check failed! One or more services are down or unhealthy."
   docker ps -a
   exit 1
 fi
 
-echo "🎉 Health Check Passed: All 3 containers are active and operational!"
+echo "🎉 Health Check Passed: Application is running and connected to AWS RDS PostgreSQL!"

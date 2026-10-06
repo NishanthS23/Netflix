@@ -1,25 +1,20 @@
-# Plan: Store Uploaded Videos on Disk Folder with DB Path Reference (Named Volume)
+# Plan: Migrate Backend from MongoDB to AWS RDS PostgreSQL
 
 ## Architecture Overview
-- **Storage Volume**: Named Docker volume (`video_uploads`) mounted to `/app/uploads` in `netflix-backend`. Files are partitioned into `/app/uploads/videos` and `/app/uploads/thumbnails`.
-- **Database Schema**: MongoDB `CustomVideo` model stores the relative file path (`videoPath`, `thumbnailPath`), filename, mime type, size, and metadata (title, description, category, user).
-- **Video Upload**: Multer stores files directly into `uploads/videos/` and `uploads/thumbnails/` inside the volume with unique filenames. File locations are saved in MongoDB.
-- **Video Streaming**: HTTP 206 Partial Content (Range requests) streamed directly from the file on disk using Node.js `fs.createReadStream` with `{ start, end }`.
-- **Thumbnail Delivery**: Thumbnail image served directly from disk via Express `res.sendFile`.
-- **Deletion**: Unlinks the physical video and thumbnail files from the filesystem when the video is deleted, then removes the MongoDB document.
+- **Database Engine**: AWS RDS PostgreSQL (`netflix-db-cluster.czg2ay4ugjsp.us-east-2.rds.amazonaws.com:5432`)
+- **Connection**: `pg` (node-postgres connection pool) with SSL support
+- **Schema & Tables**:
+  - `users`: id, username, email, password, is_verified, last_login, profile_pic, search_history (JSONB), reset_password_token, reset_password_expires_at, verification_token, verification_expires_at, created_at, updated_at
+  - `custom_videos`: id, title, description, category, video_path, video_file_id, video_filename, video_content_type, video_size, thumbnail_path, thumbnail_file_id, user_id, username, created_at, updated_at
+- **Backward Compatibility**: Interface layer keeps `_id` and standard model methods (`findOne`, `findById`, `save`, `create`) so frontend contracts remain completely unchanged.
+- **Docker & Deployment**: Local `netflix-db` container in `docker-compose.yml` retired in favor of the AWS RDS PostgreSQL database.
 
 ## Tasks
-- [x] 1. Update `docker-compose.yml` to define named volume `video_uploads` and mount it to `/app/uploads` in `netflix-backend`
-- [x] 2. Update Mongoose Schema in `backend/models/customVideo.model.js` to store `videoPath`, `thumbnailPath`, and backward-compatible fields
-- [x] 3. Update Multer storage configuration in `backend/routes/customVideo.route.js` to write directly to `uploads/videos` and `uploads/thumbnails`
-- [x] 4. Update controller logic in `backend/controllers/customVideo.controller.js`:
-  - [x] `uploadCustomVideo`: record disk path in DB document
-  - [x] `streamCustomVideo`: stream from disk file using `fs.createReadStream` with HTTP 206 Range headers
-  - [x] `getCustomVideoThumbnail`: serve thumbnail file from disk
-  - [x] `deleteCustomVideo`: remove disk files and delete DB record
-- [x] 5. Rebuild and restart the backend service (`docker compose up -d --build backend`)
-- [x] 6. Verification:
-  - [x] Inspect Docker volume `docker volume inspect netflix-clone_video_uploads`
-  - [x] Test video upload and inspect MongoDB document to confirm `videoPath` is stored
-  - [x] Verify video streaming with HTTP 206 Range headers directly from disk volume
-  - [x] Verify file unlinking on deletion
+- [x] 1. Add `pg` dependency to `backend/package.json`
+- [x] 2. Update `backend/config/env.config.js` to support PostgreSQL configuration (`DATABASE_URL`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, etc.)
+- [x] 3. Implement PostgreSQL pool and table auto-initialization in `backend/config/db.config.js`
+- [x] 4. Implement PostgreSQL data access models in `backend/models/user.model.js` and `backend/models/customVideo.model.js`
+- [x] 5. Update controllers & middlewares (`auth.controller.js`, `protectedRoute.js`, `search.controller.js`, `customVideo.controller.js`) to work cleanly with PostgreSQL models
+- [x] 6. Update `docker-compose.yml` (remove local MongoDB `db` service, pass PostgreSQL env vars to backend)
+- [x] 7. Update `.env.example`, `.env`, and deployment files (`scripts/healthcheck.sh`, `.github/workflows/deploy.yml`)
+- [ ] 8. Verify connection from EC2 backend to AWS RDS PostgreSQL, create test user, and verify health checks

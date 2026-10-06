@@ -43,4 +43,13 @@ export const ENV_VARS = {
   // Mailtrap SMTP configuration
   MAILTRAP_TOKEN: process.env.MAILTRAP_TOKEN,
   MAILTRAP_ENDPOINT: process.env.MAILTRAP_ENDPOINT,
+
+  // PostgreSQL Database configuration
+  DATABASE_URL: process.env.DATABASE_URL,
+  DB_HOST: process.env.DB_HOST || 'netflix-db-cluster.czg2ay4ugjsp.us-east-2.rds.amazonaws.com',
+  DB_PORT: parseInt(process.env.DB_PORT || '5432', 10),
+  DB_USER: process.env.DB_USER || 'nishanth',
+  DB_PASSWORD: process.env.DB_PASSWORD,
+  DB_NAME: process.env.DB_NAME || 'netflix',
+  DB_SSL: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production',
 };

@@ -1,115 +1,232 @@
-import mongoose from 'mongoose';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { pool } from '../config/db.config.js';
 import { generateProfilePicture, hashPassword } from '../helpers/helper.js';
 
 /**
- * Defines a new schema for a user in the application.
- *
- * @typedef {mongoose.Schema} UserSchema
- * @property {string} username - The username of the user.
- * @property {string} email - The email of the user.
- * @property {string} password - The password of the user.
- * @property {boolean} isVerified - Indicates whether the user's email is verified.
- * @property {Date} lastLogin - The date and time of the user's last login.
- * @property {string} profilePic - The URL of the user's profile picture.
- * @property {Array} searchHistory - The user's search history.
- * @property {string} resetPasswordToken - The token used for password reset.
- * @property {Date} resetPasswordExpiresAt - The expiration date of the password reset token.
- * @property {string} verificationToken - The token used for email verification.
- * @property {Date} verificationExpiresAt - The expiration date of the email verification token.
+ * Maps a PostgreSQL user row to a User model instance.
  */
+function mapRowToUser(row) {
+  if (!row) return null;
+  return new User({
+    id: row.id,
+    _id: row.id,
+    username: row.username,
+    email: row.email,
+    password: row.password,
+    isVerified: row.is_verified,
+    lastLogin: row.last_login,
+    profilePic: row.profile_pic,
+    searchHistory: Array.isArray(row.search_history) ? row.search_history : (typeof row.search_history === 'string' ? JSON.parse(row.search_history) : []),
+    resetPasswordToken: row.reset_password_token,
+    resetPasswordExpiresAt: row.reset_password_expires_at,
+    verificationToken: row.verification_token,
+    verificationExpiresAt: row.verification_expires_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    _isExisting: true,
+  });
+}
 
-const userSchema = new mongoose.Schema(
-  {
-    username: {
-      type: String,
-      required: [true, 'Username is required'],
-      unique: true,
-    },
-    email: {
-      type: String,
-      required: [true, 'Email is required'],
-      unique: true,
-      index: { unique: true },
-    },
-    password: {
-      type: String,
-      required: [true, 'Password is required'],
-    },
-    isVerified: {
-      type: Boolean,
-      default: false,
-    },
-    lastLogin: {
-      type: Date,
-      default: Date.now,
-    },
-    profilePic: {
-      type: String,
-      default: generateProfilePicture,
-    },
-    searchHistory: {
-      type: Array,
-      default: [],
-    },
-    resetPasswordToken: String,
-    resetPasswordExpiresAt: Date,
-    verificationToken: String,
-    verificationExpiresAt: Date,
-  },
-  {
-    timestamps: true,
+export class User {
+  constructor(data = {}) {
+    this.id = data.id || data._id || crypto.randomBytes(12).toString('hex');
+    this._id = this.id;
+    this.username = data.username;
+    this.email = data.email;
+    this.password = data.password;
+    this.isVerified = data.isVerified !== undefined ? data.isVerified : false;
+    this.lastLogin = data.lastLogin || new Date();
+    this.profilePic = data.profilePic || generateProfilePicture();
+    this.searchHistory = data.searchHistory || [];
+    this.resetPasswordToken = data.resetPasswordToken || null;
+    this.resetPasswordExpiresAt = data.resetPasswordExpiresAt || null;
+    this.verificationToken = data.verificationToken || null;
+    this.verificationExpiresAt = data.verificationExpiresAt || null;
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
+    this._isExisting = Boolean(data._isExisting);
+    this._originalPassword = data._isExisting ? data.password : null;
   }
-);
 
-/**
- * Hash the password before saving it to the database using mongoose Pre-hooks.
- * This function is executed before saving a user document.
- *
- * @param {mongoose.HookNextFunction} next - The next middleware function in the stack.
- * @returns {void}
- * @throws Will throw an error if hashing the password fails.
- */
-userSchema.pre('save', async function (next) {
-  // only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) return next();
-
-  try {
-    const hashedPassword = await hashPassword(this.password);
-    // override the cleartext password with the hashed one
-    this.password = hashedPassword;
-    return next();
-  } catch (error) {
-    return next(error);
+  get _doc() {
+    return {
+      _id: this.id,
+      id: this.id,
+      username: this.username,
+      email: this.email,
+      password: this.password,
+      isVerified: this.isVerified,
+      lastLogin: this.lastLogin,
+      profilePic: this.profilePic,
+      searchHistory: this.searchHistory,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+    };
   }
-});
 
-/**
- * Compares a given password with the user's hashed password.
- *
- * @function comparePassword
- * @param {string} userPassword - The password provided by the user.
- * @returns {Promise<boolean>} - A promise that resolves to a boolean indicating whether the given password matches the user's hashed password.
- * @throws Will throw an error if the comparison fails.
- *
- * @example
- * const user = new User({ username: 'johnDoe', email: 'johndoe@example.com', password: 'password123' });
- * await user.save();
- * const isMatch = await user.comparePassword('password123');
- * console.log(isMatch); // Output: true
- */
-userSchema.methods.comparePassword = async function comparePassword(userPassword) {
-  return bcrypt.compare(userPassword, this.password);
-};
+  async comparePassword(candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password);
+  }
 
-/**
- * Creates and exports a new Mongoose model using the provided user schema.
- *
- * @function
- * @param {mongoose.Schema} userSchema - The Mongoose schema to be used for creating the model.
- * @returns {mongoose.Model<mongoose.Document>} - The newly created Mongoose model.
- * @throws Will throw an error if the model creation fails.
- */
-const User = mongoose.model('User', userSchema);
+  async save() {
+    // Hash password if modified or newly created
+    if (this.password && this.password !== this._originalPassword && !this.password.startsWith('$2a$') && !this.password.startsWith('$2b$')) {
+      this.password = await hashPassword(this.password);
+    }
+
+    this.updatedAt = new Date();
+
+    if (this._isExisting) {
+      const query = `
+        UPDATE users
+        SET username = $2,
+            email = $3,
+            password = $4,
+            is_verified = $5,
+            last_login = $6,
+            profile_pic = $7,
+            search_history = $8,
+            reset_password_token = $9,
+            reset_password_expires_at = $10,
+            verification_token = $11,
+            verification_expires_at = $12,
+            updated_at = $13
+        WHERE id = $1
+        RETURNING *;
+      `;
+      const values = [
+        this.id,
+        this.username,
+        this.email,
+        this.password,
+        this.isVerified,
+        this.lastLogin,
+        this.profilePic,
+        JSON.stringify(this.searchHistory || []),
+        this.resetPasswordToken,
+        this.resetPasswordExpiresAt,
+        this.verificationToken,
+        this.verificationExpiresAt,
+        this.updatedAt,
+      ];
+      const res = await pool.query(query, values);
+      const updated = mapRowToUser(res.rows[0]);
+      Object.assign(this, updated);
+      return this;
+    } else {
+      const query = `
+        INSERT INTO users (
+          id, username, email, password, is_verified, last_login, profile_pic,
+          search_history, reset_password_token, reset_password_expires_at,
+          verification_token, verification_expires_at, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        RETURNING *;
+      `;
+      const values = [
+        this.id,
+        this.username,
+        this.email,
+        this.password,
+        this.isVerified,
+        this.lastLogin,
+        this.profilePic,
+        JSON.stringify(this.searchHistory || []),
+        this.resetPasswordToken,
+        this.resetPasswordExpiresAt,
+        this.verificationToken,
+        this.verificationExpiresAt,
+        this.createdAt,
+        this.updatedAt,
+      ];
+      const res = await pool.query(query, values);
+      const created = mapRowToUser(res.rows[0]);
+      Object.assign(this, created);
+      return this;
+    }
+  }
+
+  static async findOne(criteria = {}) {
+    let whereClauses = [];
+    let values = [];
+    let idx = 1;
+
+    if (criteria.email) {
+      whereClauses.push(`LOWER(email) = LOWER($${idx++})`);
+      values.push(criteria.email);
+    }
+    if (criteria.username) {
+      whereClauses.push(`username = $${idx++}`);
+      values.push(criteria.username);
+    }
+    if (criteria.verificationToken) {
+      whereClauses.push(`verification_token = $${idx++}`);
+      values.push(criteria.verificationToken);
+    }
+    if (criteria.resetPasswordToken) {
+      whereClauses.push(`reset_password_token = $${idx++}`);
+      values.push(criteria.resetPasswordToken);
+    }
+    if (criteria.verificationExpiresAt && criteria.verificationExpiresAt.$gt) {
+      whereClauses.push(`verification_expires_at > $${idx++}`);
+      values.push(new Date(criteria.verificationExpiresAt.$gt));
+    }
+    if (criteria.resetPasswordExpiresAt && criteria.resetPasswordExpiresAt.$gt) {
+      whereClauses.push(`reset_password_expires_at > $${idx++}`);
+      values.push(new Date(criteria.resetPasswordExpiresAt.$gt));
+    }
+
+    const where = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+    const res = await pool.query(`SELECT * FROM users ${where} LIMIT 1;`, values);
+    return mapRowToUser(res.rows[0]);
+  }
+
+  static findById(id) {
+    const queryPromise = (async () => {
+      const res = await pool.query('SELECT * FROM users WHERE id = $1 LIMIT 1;', [String(id)]);
+      return mapRowToUser(res.rows[0]);
+    })();
+
+    // Provide chainable .select() support for Mongoose compatibility
+    return {
+      then: (resolve, reject) => queryPromise.then(resolve, reject),
+      catch: (reject) => queryPromise.catch(reject),
+      select: function (fields) {
+        return (async () => {
+          const user = await queryPromise;
+          if (!user) return null;
+          if (typeof fields === 'string' && fields.includes('-password')) {
+            user.password = undefined;
+          }
+          return user;
+        })();
+      },
+    };
+  }
+
+  static async findByIdAndUpdate(id, update = {}, options = {}) {
+    const user = await User.findById(id);
+    if (!user) return null;
+
+    if (update.$push && update.$push.searchHistory) {
+      const history = user.searchHistory || [];
+      history.push(update.$push.searchHistory);
+      user.searchHistory = history;
+    }
+
+    if (update.$pull && update.$pull.searchHistory) {
+      const pullItem = update.$pull.searchHistory;
+      if (pullItem.id) {
+        user.searchHistory = (user.searchHistory || []).filter(
+          (item) => item.id !== pullItem.id && item.id !== Number(pullItem.id)
+        );
+      }
+    }
+
+    await user.save();
+    return user;
+  }
+}
 
 export default User;

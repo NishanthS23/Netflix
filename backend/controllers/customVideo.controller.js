@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import mongoose from 'mongoose';
+import crypto from 'crypto';
 import CustomVideo from '../models/customVideo.model.js';
 import {
   getVideoBucket,
@@ -44,8 +44,8 @@ export const uploadCustomVideo = async (req, res) => {
       videoContentType: videoFile.mimetype || 'video/mp4',
       videoSize: videoFile.size,
       thumbnailPath,
-      // Provide a valid ObjectId for thumbnailFileId if thumbnail exists to maintain frontend compatibility
-      thumbnailFileId: thumbnailPath ? new mongoose.Types.ObjectId() : null,
+      // Provide a valid ID for thumbnailFileId if thumbnail exists to maintain frontend compatibility
+      thumbnailFileId: thumbnailPath ? crypto.randomBytes(12).toString('hex') : null,
       userId: req.user._id,
       username: req.user.username,
     });
@@ -200,59 +200,43 @@ export const streamCustomVideo = async (req, res) => {
       return;
     }
 
-    // 2. Legacy fallback: Stream from MongoDB GridFS if videoFileId exists
+    // 2. Legacy fallback: Stream from MongoDB GridFS if videoFileId exists and GridFS is available
     if (video.videoFileId) {
-      const videoBucket = getVideoBucket();
-      const files = await videoBucket.find({ _id: new mongoose.Types.ObjectId(video.videoFileId) }).toArray();
-
-      if (!files || files.length === 0) {
-        return res.status(404).json({ success: false, message: 'Video data not found in database' });
+      try {
+        const videoBucket = getVideoBucket();
+        if (videoBucket) {
+          const files = await videoBucket.find({ _id: video.videoFileId }).toArray();
+          if (files && files.length > 0) {
+            const file = files[0];
+            const fileSize = file.length;
+            const range = req.headers.range;
+            if (range) {
+              const parts = range.replace(/bytes=/, '').split('-');
+              const start = parseInt(parts[0], 10);
+              const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+              const chunksize = end - start + 1;
+              res.writeHead(206, {
+                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunksize,
+                'Content-Type': file.contentType || 'video/mp4',
+              });
+              const downloadStream = videoBucket.openDownloadStream(file._id, { start, end: end + 1 });
+              return downloadStream.pipe(res);
+            } else {
+              res.writeHead(200, {
+                'Content-Length': fileSize,
+                'Content-Type': file.contentType || 'video/mp4',
+              });
+              const downloadStream = videoBucket.openDownloadStream(file._id);
+              return downloadStream.pipe(res);
+            }
+          }
+        }
+      } catch (e) {
+        // ignore legacy error
       }
-
-      const file = files[0];
-      const fileSize = file.length;
-      const range = req.headers.range;
-
-      if (range) {
-        const parts = range.replace(/bytes=/, '').split('-');
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-        const chunkSize = end - start + 1;
-
-        res.writeHead(206, {
-          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': chunkSize,
-          'Content-Type': file.contentType || video.videoContentType || 'video/mp4',
-        });
-
-        const downloadStream = videoBucket.openDownloadStream(file._id, {
-          start,
-          end: end + 1,
-        });
-
-        downloadStream.on('error', (err) => {
-          console.error('Download stream error:', err);
-          if (!res.headersSent) res.status(500).end();
-        });
-
-        downloadStream.pipe(res);
-      } else {
-        res.writeHead(200, {
-          'Content-Length': fileSize,
-          'Content-Type': file.contentType || video.videoContentType || 'video/mp4',
-          'Accept-Ranges': 'bytes',
-        });
-
-        const downloadStream = videoBucket.openDownloadStream(file._id);
-        downloadStream.on('error', (err) => {
-          console.error('Download stream error:', err);
-          if (!res.headersSent) res.status(500).end();
-        });
-
-        downloadStream.pipe(res);
-      }
-      return;
+      return res.status(404).json({ success: false, message: 'Video data not found on disk' });
     }
 
     return res.status(404).json({ success: false, message: 'No video source found for this entry' });
@@ -288,16 +272,18 @@ export const getCustomVideoThumbnail = async (req, res) => {
     if (video.thumbnailFileId) {
       try {
         const thumbnailBucket = getThumbnailBucket();
-        const files = await thumbnailBucket.find({ _id: new mongoose.Types.ObjectId(video.thumbnailFileId) }).toArray();
+        if (thumbnailBucket) {
+          const files = await thumbnailBucket.find({ _id: video.thumbnailFileId }).toArray();
 
-        if (files && files.length > 0) {
-          const file = files[0];
-          res.setHeader('Content-Type', file.contentType || 'image/jpeg');
-          res.setHeader('Content-Length', file.length);
-          res.setHeader('Cache-Control', 'public, max-age=86400');
+          if (files && files.length > 0) {
+            const file = files[0];
+            res.setHeader('Content-Type', file.contentType || 'image/jpeg');
+            res.setHeader('Content-Length', file.length);
+            res.setHeader('Cache-Control', 'public, max-age=86400');
 
-          const downloadStream = thumbnailBucket.openDownloadStream(file._id);
-          return downloadStream.pipe(res);
+            const downloadStream = thumbnailBucket.openDownloadStream(file._id);
+            return downloadStream.pipe(res);
+          }
         }
       } catch (e) {
         // ignore legacy error

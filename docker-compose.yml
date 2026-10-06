@@ -1,27 +1,5 @@
 services:
-  # Database Service (MongoDB)
-  db:
-    build:
-      context: ./db
-      dockerfile: Dockerfile
-    container_name: netflix-db
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: netflix
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-    networks:
-      - netflix-network
-
-  # Backend Service (Node.js & Express)
+  # Backend Service (Node.js & Express connected to AWS RDS PostgreSQL)
   backend:
     build:
       context: ./backend
@@ -33,17 +11,21 @@ services:
     environment:
       - NODE_ENV=production
       - SERVER_PORT=8000
-      - MONGO_URI=mongodb://db:27017/netflix
-      - CLIENT_URL=http://localhost
+      - CLIENT_URL=${CLIENT_URL:-http://localhost}
       - JWT_SECRET=${JWT_SECRET:-netflix_super_secret_jwt_key_2026}
       - TMDB_API_KEY=${TMDB_API_KEY:-}
       - MAILTRAP_TOKEN=${MAILTRAP_TOKEN:-}
       - MAILTRAP_ENDPOINT=${MAILTRAP_ENDPOINT:-}
+      # AWS RDS PostgreSQL Configuration
+      - DATABASE_URL=${DATABASE_URL:-}
+      - DB_HOST=${DB_HOST:-netflix-db-cluster.czg2ay4ugjsp.us-east-2.rds.amazonaws.com}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-nishanth}
+      - DB_PASSWORD=${DB_PASSWORD:-}
+      - DB_NAME=${DB_NAME:-netflix}
+      - DB_SSL=${DB_SSL:-true}
     volumes:
       - video_uploads:/app/uploads
-    depends_on:
-      db:
-        condition: service_healthy
     networks:
       - netflix-network
 
@@ -62,8 +44,6 @@ services:
       - netflix-network
 
 volumes:
-  mongo_data:
-    name: devops_mongo_data
   video_uploads:
     name: devops_video_uploads
 
