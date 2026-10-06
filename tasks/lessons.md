@@ -16,4 +16,6 @@
   1. Never interpolate un-sanitized secrets directly into multi-line SSH script commands.
   2. Strip CRLF/newlines on the GitHub runner (`printf '%s' "$val" | tr -d '\r\n '`).
   3. Bundle production `.env` files and base64-encode them on the runner (`base64 | tr -d '\r\n'`), decoding on the target server via `echo "$ENV_B64" | base64 -d > .env`. Base64 contains zero newlines or special characters, completely eliminating command line injection risks.
+- **Heredocs in YAML `run: |` blocks**: Never drop lines to column 0 inside a YAML literal scalar block (`run: |`). Standard YAML parsers interpret column 0 as the end of the block, causing subsequent lines to be parsed as invalid root YAML keys. Always use indented shell command grouping (e.g. `{ echo "..."; } > file`) or properly indented heredocs to maintain YAML indentation.
+
 

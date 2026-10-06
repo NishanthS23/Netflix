@@ -71,6 +71,8 @@
 - **Drone SSH / Multiline Secret Defense**:
   - Trailing newlines in secrets cannot corrupt command strings because production `.env` is created and base64 encoded on the GitHub runner.
   - Decoding on EC2 via `echo "${{ env.ENV_B64 }}" | base64 -d > .env` guarantees zero line breaks in the SSH command and byte-for-byte exact configuration.
+- **Workflow YAML Indentation**:
+  - Replaced unindented heredoc in `deploy.yml` with properly indented command group `{ echo "..."; } > .env.temp` so GitHub Actions parses the workflow without syntax errors. Validated with `yaml.safe_load`.
 
 
 
