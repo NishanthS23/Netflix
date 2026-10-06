@@ -46,22 +46,8 @@ jobs:
             git reset --hard origin/main
 
             echo "=== 3. Writing .env file ==="
-            cat << 'EOF' > .env
-            NODE_ENV=production
-            SERVER_PORT=8000
-            CLIENT_URL=http://${{ env.EC2_HOST }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}
-            MAILTRAP_TOKEN=${{ secrets.MAILTRAP_TOKEN }}
-            MAILTRAP_ENDPOINT=${{ secrets.MAILTRAP_ENDPOINT }}
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            DB_HOST=${{ secrets.DB_HOST || 'netflix-db-cluster.czg2ay4ugjsp.us-east-2.rds.amazonaws.com' }}
-            DB_PORT=5432
-            DB_USER=${{ secrets.DB_USER || 'nishanth' }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_NAME=${{ secrets.DB_NAME || 'netflix' }}
-            DB_SSL=true
-            EOF
+            chmod +x scripts/create_env.sh
+            bash scripts/create_env.sh "${{ env.EC2_HOST }}" "${{ secrets.JWT_SECRET }}" "${{ secrets.DB_USER || 'nishanth' }}" "${{ secrets.DB_PASSWORD || 'nishanth' }}" "${{ secrets.DB_HOST || 'netflix-db-cluster.czg2ay4ugjsp.us-east-2.rds.amazonaws.com' }}" "${{ secrets.DB_NAME || 'netflix' }}" "${{ secrets.TMDB_API_KEY }}" "${{ secrets.MAILTRAP_TOKEN }}" "${{ secrets.MAILTRAP_ENDPOINT }}"
 
             echo "=== 4. Starting Docker Compose build and deployment ==="
             docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true

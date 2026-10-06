@@ -4,21 +4,19 @@ import { getCurrentDateTime } from '../helpers/helper.js';
 
 const { Pool } = pg;
 
-let poolConfig = {};
+let poolConfig = {
+  host: ENV_VARS.DB_HOST,
+  port: ENV_VARS.DB_PORT,
+  user: ENV_VARS.DB_USER,
+  password: String(ENV_VARS.DB_PASSWORD || ''),
+  database: ENV_VARS.DB_NAME,
+  ssl: { rejectUnauthorized: false },
+};
 
-if (ENV_VARS.DATABASE_URL) {
+if (ENV_VARS.DATABASE_URL && ENV_VARS.DATABASE_URL.trim() !== '') {
   const cleanConnectionString = ENV_VARS.DATABASE_URL.replace(/[\?&]sslmode=[^&]+/gi, '');
   poolConfig = {
     connectionString: cleanConnectionString,
-    ssl: { rejectUnauthorized: false },
-  };
-} else {
-  poolConfig = {
-    host: ENV_VARS.DB_HOST,
-    port: ENV_VARS.DB_PORT,
-    user: ENV_VARS.DB_USER,
-    password: ENV_VARS.DB_PASSWORD,
-    database: ENV_VARS.DB_NAME,
     ssl: { rejectUnauthorized: false },
   };
 }
