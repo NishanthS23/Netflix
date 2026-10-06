@@ -47,7 +47,7 @@ jobs:
 
             echo "=== 3. Writing .env file ==="
             chmod +x scripts/create_env.sh
-            bash scripts/create_env.sh "${{ env.EC2_HOST }}" "${{ secrets.JWT_SECRET }}" "${{ secrets.DB_USER || 'nishanth' }}" "${{ secrets.DB_PASSWORD || 'nishanth' }}" "${{ secrets.DB_HOST || 'netflix-db-cluster.czg2ay4ugjsp.us-east-2.rds.amazonaws.com' }}" "${{ secrets.DB_NAME || 'netflix' }}" "${{ secrets.TMDB_API_KEY }}" "${{ secrets.MAILTRAP_TOKEN }}" "${{ secrets.MAILTRAP_ENDPOINT }}"
+            bash scripts/create_env.sh "${{ env.EC2_HOST }}" "${{ secrets.JWT_SECRET }}" "${{ secrets.DB_USER }}" "${{ secrets.DB_PASSWORD }}" "${{ secrets.DB_HOST }}" "${{ secrets.DB_NAME }}" "${{ secrets.TMDB_API_KEY }}" "${{ secrets.MAILTRAP_TOKEN }}" "${{ secrets.MAILTRAP_ENDPOINT }}"
 
             echo "=== 4. Starting Docker Compose build and deployment ==="
             docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
