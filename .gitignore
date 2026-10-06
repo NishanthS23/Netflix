@@ -1,39 +1,147 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ==========================================
+# Netflix Clone - Production Git Ignore Rules
+# ==========================================
 
-# dependencies
-/node_modules
-/backend/node_modules
-/frontend/node_modules
-/.pnp
+# ------------------------------------------
+# 1. Dependencies & Package Managers
+# ------------------------------------------
+node_modules/
+/node_modules/
+/backend/node_modules/
+/frontend/node_modules/
+.pnp
 .pnp.js
 .yarn/install-state.gz
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
 
-# testing
-/coverage
-
-# next.js
+# ------------------------------------------
+# 2. Build Artifacts & Bundler Caches
+# ------------------------------------------
+dist/
+dist-ssr/
+frontend/dist/
+build/
+/build/
+out/
 /.next/
-/out/
+.cache/
+.parcel-cache/
+.turbo/
+.vite/
+*.tsbuildinfo
+next-env.d.ts
 
-# production
-/build
+# ------------------------------------------
+# 3. Media Uploads & Runtime File Storage
+# ------------------------------------------
+uploads/
+/uploads/
+backend/uploads/
+/backend/uploads/
+temp/
+tmp/
 
-# misc
-.DS_Store
+# ------------------------------------------
+# 4. Environment Variables & Credentials
+# ------------------------------------------
+.env
+.env.*
+*.env
+backend/.env
+frontend/.env
+!.env.example
 *.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
 
-# debug
+# ------------------------------------------
+# 5. Logs & Debugging Output
+# ------------------------------------------
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# local env files
-.env
-.env*.local
+# ------------------------------------------
+# 6. Operating System Files
+# ------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
 
-# vercel
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+
+# ------------------------------------------
+# 7. IDE & Code Editors
+# ------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swo
+*.swn
+*.bak
+
+# ------------------------------------------
+# 8. Testing & Coverage
+# ------------------------------------------
+coverage/
+/coverage/
+.nyc_output/
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+
+# ------------------------------------------
+# 9. Cloud & Deployment Caches
+# ------------------------------------------
 .vercel
+.serverless/
+.terraform/
+.aws/
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# ------------------------------------------
+# 10. AI Agent Files & Customizations
+# ------------------------------------------
+.agents/
+/.agents/
+.gemini/
+/.gemini/
+.antigravity/
+/.antigravity/
+.claude/
+/.claude/
+.cursor/
+/.cursor/
+*.local.json

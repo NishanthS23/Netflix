@@ -1,20 +1,20 @@
 <a name="top"></a>
 <h1 align="center">MERN Netflix Clone 🎬</h1>
 
-![Demo App](./preview/home-screen.png 'Preview')
+![Demo App](./frontend/public/preview/home-screen.png 'Preview')
 
 ## This is how the project looks like:
 
 <table>
   <tr>
     <td>
-      <a href='./login-screen.png'><img src="./preview/login-screen.png" style="width: 300px"/></a>
+      <a href='./frontend/public/preview/login-screen.png'><img src="./frontend/public/preview/login-screen.png" style="width: 300px"/></a>
     </td>
     <td>
-      <a href='./search-page.png'><img src="./preview/search-page.png" style="width: 300px"/></a>
+      <a href='./frontend/public/preview/search-page.png'><img src="./frontend/public/preview/search-page.png" style="width: 300px"/></a>
     </td>
     <td>
-      <a href='./watch-trailers.png'><img src="./preview/watch-trailers.png" style="width: 300px"/></a>
+      <a href='./frontend/public/preview/watch-trailers.png'><img src="./frontend/public/preview/watch-trailers.png" style="width: 300px"/></a>
     </td>
   </tr>
 </table>

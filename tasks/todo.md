@@ -1,30 +1,37 @@
-# Plan: Fix Custom Video Loading and Model Compatibility
+# Plan: Analyze Project Folder Structure, Organize Codebase, and Enhance .gitignore
 
-## Architecture Overview
-- **Issue**:
-  - `custom upload video not working Could not load custom video`
-  - When opening `/watch-custom/:id` or `/custom-videos`, backend fails with:
-    `TypeError: v.toObject is not a function` at `getAllCustomVideos` and `getCustomVideoById`.
-  - Secondary issue: `custom_videos` PostgreSQL table in AWS RDS is missing the `views` column (which defaults to 0 in original schema and is incremented in `getCustomVideoById`).
-  - Secondary issue: `video.views += 1` results in `NaN` when `views` is undefined, and `save()` did not persist or return `views`.
-- **Target Changes**:
-  1. Add `views` column auto-migration (`ALTER TABLE custom_videos ADD COLUMN IF NOT EXISTS views INT DEFAULT 0;`) in `backend/config/db.config.js`.
-  2. Implement `toObject()` and `toJSON()` methods on `CustomVideo` in `backend/models/customVideo.model.js`, map `views` in constructor and `mapRowToCustomVideo`, and include `views` in `save()` UPDATE/INSERT queries.
-  3. Implement `toObject()` and `toJSON()` on `User` in `backend/models/user.model.js` for full parity.
-  4. Add defensive guards in `backend/controllers/customVideo.controller.js` (`typeof v.toObject === 'function' ? v.toObject() : { ...v }`, fallback views to 0).
-  5. Deploy backend changes directly to EC2 and test with curl and logs.
+## Architecture & Project Structure Overview
+- **Project Scope**: Netflix Clone full-stack application (React 18 + Vite frontend, Express + Node.js backend, AWS RDS PostgreSQL database, Docker containerization, GitHub Actions / EC2 deployment).
+- **Objectives**:
+  1. Complete structural analysis of all folders and files across the repository.
+  2. Identify and organize clutter, dead code, legacy files (GridFS / legacy MongoDB leftovers), and untracked skills.
+  3. Consolidate and expand `.gitignore` into a clean, comprehensive, production-grade ignore configuration.
+  4. Ensure Docker ignore files (`.dockerignore`) are aligned to prevent uploading or bundling unwanted assets.
 
 ## Tasks
-- [x] 1. Update `backend/config/db.config.js` to ensure `views INT DEFAULT 0` column exists on `custom_videos`
-- [x] 2. Update `backend/models/customVideo.model.js` to add `toObject()`, `toJSON()`, `views` field handling in constructor, `mapRowToCustomVideo`, and `save()`
-- [x] 3. Update `backend/models/user.model.js` to add `toObject()` and `toJSON()` methods
-- [x] 4. Update `backend/controllers/customVideo.controller.js` with defensive `.toObject()` checks and proper views initialization
-- [x] 5. Push changes to git repository and deploy / rebuild backend container on EC2
-- [x] 6. Verify `GET /api/v1/custom-videos` and `GET /api/v1/custom-videos/:id` return HTTP 200 without errors
+- [x] 1. Conduct in-depth analysis of directory layout, tech stack, and identify redundant/unwanted files
+- [x] 2. Update and organize root `.gitignore` with comprehensive rules (dependencies, builds, uploads, secrets, logs, OS, IDEs, caches)
+- [x] 3. Align `backend/.dockerignore` and `frontend/.dockerignore` with the updated ignore policies
+- [x] 4. Clean up and organize code (remove dead GridFS imports from `backend/controllers/customVideo.controller.js`, remove orphaned `gridfs.service.js`, clean `backend/package.json`)
+- [x] 5. Organize untracked `.agents/skills/find-skills/`
+- [x] 6. Verify git ignore behavior using `git status`, `git check-ignore`, and verify project integrity
+- [x] 7. Document findings and results in `tasks/todo.md` and capture any lessons
+
+## New Tasks: Move Preview, Move API, and Gitignore AI Agents
+- [x] 1. Move `preview/` folder into `frontend/public/preview/` and update `README.md` image references
+- [x] 2. Move `api/` folder into `backend/api/`, update relative imports in `backend/api/index.js`, and update `vercel.json`
+- [x] 3. Add `.agents` and AI agent patterns (`.agents/`, `.claude/`, `.cursor/`, `.gemini/`, `.antigravity/`) to `.gitignore`
+- [x] 4. Untrack `.agents` from git cache (`git rm -r --cached .agents`) while keeping local files intact
+- [x] 5. Verify git status, ignored files, and build references
+- [x] 6. Document results and review in `tasks/todo.md`
 
 ## Review & Verification
-- `GET /api/v1/custom-videos`: Returns `HTTP 200` with the custom videos list.
-- `GET /api/v1/custom-videos/:id`: Returns `HTTP 200` with the video object and increments view count in RDS.
-- `GET /api/v1/custom-videos/stream/:id`: Returns `HTTP 206 Partial Content` with `Content-Range` and `video/mp4`.
-- `GET /api/v1/custom-videos/thumbnail/:id`: Returns `HTTP 200` with `image/png`.
-- All routes verified directly through nginx reverse proxy (port 80) and Express server (port 8000).
+- **Preview Relocation**: Moved `preview/` to `frontend/public/preview/` and updated all image markdown links in `README.md`.
+- **API Relocation**: Moved `api/` into `backend/api/`, updated imports in `backend/api/index.js` (`../app.js`, `../config/db.config.js`), and updated Vercel rewrite destination in `vercel.json` (`/backend/api/index.js`).
+- **AI Agent Gitignore**:
+  - Added `.agents/`, `.gemini/`, `.antigravity/`, `.claude/`, `.cursor/`, `*.local.json` to `.gitignore`.
+  - Untracked `.agents/` via `git rm -r --cached .agents`.
+  - Verified local skills files remain intact on disk while being ignored by Git.
+  - Added `.agents` to both `backend/.dockerignore` and `frontend/.dockerignore`.
+
+

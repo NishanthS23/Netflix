@@ -2,14 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import CustomVideo from '../models/customVideo.model.js';
-import {
-  getVideoBucket,
-  getThumbnailBucket,
-  deleteFileFromGridFS,
-} from '../services/gridfs.service.js';
 
 /**
- * Uploads a custom video and optional thumbnail to disk volume and saves file path in MongoDB
+ * Uploads a custom video and optional thumbnail to disk volume and saves file path in PostgreSQL database
  */
 export const uploadCustomVideo = async (req, res) => {
   const videoFile = req.files?.['video']?.[0];
@@ -34,7 +29,7 @@ export const uploadCustomVideo = async (req, res) => {
       ? path.relative(process.cwd(), thumbnailFile.path).replace(/\\/g, '/')
       : null;
 
-    // Save video metadata and file locations to MongoDB
+    // Save video metadata and file locations to PostgreSQL database
     const newVideo = new CustomVideo({
       title: title.trim(),
       description: (description || '').trim(),
