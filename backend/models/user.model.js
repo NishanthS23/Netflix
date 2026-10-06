@@ -91,6 +91,12 @@ export class User {
 
     this.updatedAt = new Date();
 
+    const toSqlTimestamp = (val) => {
+      if (!val) return null;
+      const d = val instanceof Date ? val : new Date(val);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
     if (this._isExisting) {
       const query = `
         UPDATE users
@@ -116,14 +122,14 @@ export class User {
         this.email,
         this.password,
         this.isVerified,
-        this.lastLogin,
+        toSqlTimestamp(this.lastLogin) || new Date(),
         this.profilePic,
         JSON.stringify(this.searchHistory || []),
         this.resetPasswordToken,
-        this.resetPasswordExpiresAt,
+        toSqlTimestamp(this.resetPasswordExpiresAt),
         this.verificationToken,
-        this.verificationExpiresAt,
-        this.updatedAt,
+        toSqlTimestamp(this.verificationExpiresAt),
+        toSqlTimestamp(this.updatedAt) || new Date(),
         this.googleId,
       ];
       const res = await pool.query(query, values);
@@ -146,15 +152,15 @@ export class User {
         this.email,
         this.password,
         this.isVerified,
-        this.lastLogin,
+        toSqlTimestamp(this.lastLogin) || new Date(),
         this.profilePic,
         JSON.stringify(this.searchHistory || []),
         this.resetPasswordToken,
-        this.resetPasswordExpiresAt,
+        toSqlTimestamp(this.resetPasswordExpiresAt),
         this.verificationToken,
-        this.verificationExpiresAt,
-        this.createdAt,
-        this.updatedAt,
+        toSqlTimestamp(this.verificationExpiresAt),
+        toSqlTimestamp(this.createdAt) || new Date(),
+        toSqlTimestamp(this.updatedAt) || new Date(),
         this.googleId,
       ];
       const res = await pool.query(query, values);
