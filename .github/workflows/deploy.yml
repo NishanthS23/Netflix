@@ -87,23 +87,23 @@ jobs:
             DATABASE_URL=""
           fi
 
-          cat << EOF > .env.temp
-NODE_ENV=production
-SERVER_PORT=8000
-CLIENT_URL=http://${CLEAN_HOST}
-JWT_SECRET=${CLEAN_JWT}
-DB_HOST=${CLEAN_DB_HOST}
-DB_PORT=5432
-DB_USER=${CLEAN_DB_USER}
-DB_PASSWORD=${CLEAN_DB_PASS}
-DB_NAME=${CLEAN_DB_NAME}
-DB_SSL=true
-DATABASE_URL=${DATABASE_URL}
-TMDB_API_KEY=${CLEAN_TMDB}
-MAILTRAP_TOKEN=${CLEAN_MAILTRAP_TOK}
-MAILTRAP_ENDPOINT=${CLEAN_MAILTRAP_EP}
-DOCKERHUB_USERNAME=${CLEAN_DH_USER}
-EOF
+          {
+            echo "NODE_ENV=production"
+            echo "SERVER_PORT=8000"
+            echo "CLIENT_URL=http://${CLEAN_HOST}"
+            echo "JWT_SECRET=${CLEAN_JWT}"
+            echo "DB_HOST=${CLEAN_DB_HOST}"
+            echo "DB_PORT=5432"
+            echo "DB_USER=${CLEAN_DB_USER}"
+            echo "DB_PASSWORD=${CLEAN_DB_PASS}"
+            echo "DB_NAME=${CLEAN_DB_NAME}"
+            echo "DB_SSL=true"
+            echo "DATABASE_URL=${DATABASE_URL}"
+            echo "TMDB_API_KEY=${CLEAN_TMDB}"
+            echo "MAILTRAP_TOKEN=${CLEAN_MAILTRAP_TOK}"
+            echo "MAILTRAP_ENDPOINT=${CLEAN_MAILTRAP_EP}"
+            echo "DOCKERHUB_USERNAME=${CLEAN_DH_USER}"
+          } > .env.temp
 
           ENV_B64=$(base64 .env.temp | tr -d '\r\n')
           echo "ENV_B64=$ENV_B64" >> $GITHUB_ENV
