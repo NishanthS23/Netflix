@@ -25,13 +25,43 @@
 - [x] 5. Verify git status, ignored files, and build references
 - [x] 6. Document results and review in `tasks/todo.md`
 
+## Environment Secrets Hardening
+- [x] 1. Audit `docker-compose.yml` for exposed endpoints, secrets, and usernames
+- [x] 2. Remove hardcoded sensitive values (`JWT_SECRET`, `DB_HOST`, `DB_USER`, `DB_NAME`, `DB_PASSWORD`) from `docker-compose.yml`
+- [x] 3. Configure `env_file: - .env` in `docker-compose.yml` for automatic environment injection
+- [x] 4. Update `.env.example` with sanitized placeholders (PostgreSQL and application keys)
+- [x] 5. Verify configuration resolution using `docker compose config`
+
+## Docker Hub CI/CD & Nginx Isolation
+- [x] 1. Update `docker-compose.yml` to tag images with `${DOCKERHUB_USERNAME:-nishanthsaravanan503}` and unexpose host port 8000
+- [x] 2. Update `.github/workflows/deploy.yml` with `build-and-push` job targeting Docker Hub and `deploy` job using `docker compose pull`
+- [x] 3. Update `scripts/create_env.sh` to write `DOCKERHUB_USERNAME` into `.env`
+- [x] 4. Update `scripts/healthcheck.sh` to test Backend API through Nginx (port 80) and verify port 8000 isolation
+- [x] 5. Update `.env.example` and local `.env` with `DOCKERHUB_USERNAME=nishanthsaravanan503`
+- [x] 6. Validate configuration using `docker compose config`
+- [x] 7. Create walkthrough artifact for documentation
+
+## RDS Secrets Hardening to GitHub Secrets
+- [x] 1. Remove hardcoded RDS cluster endpoint and credentials fallbacks from `backend/config/env.config.js`
+- [x] 2. Remove hardcoded RDS default values from `scripts/create_env.sh` and support dynamic `DATABASE_URL`
+- [x] 3. Update `.github/workflows/deploy.yml` to pass RDS secrets (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DATABASE_URL`) from GitHub Secrets
+- [x] 4. Verify syntax with `node --check` and `docker compose config`
+
 ## Review & Verification
-- **Preview Relocation**: Moved `preview/` to `frontend/public/preview/` and updated all image markdown links in `README.md`.
-- **API Relocation**: Moved `api/` into `backend/api/`, updated imports in `backend/api/index.js` (`../app.js`, `../config/db.config.js`), and updated Vercel rewrite destination in `vercel.json` (`/backend/api/index.js`).
-- **AI Agent Gitignore**:
-  - Added `.agents/`, `.gemini/`, `.antigravity/`, `.claude/`, `.cursor/`, `*.local.json` to `.gitignore`.
-  - Untracked `.agents/` via `git rm -r --cached .agents`.
-  - Verified local skills files remain intact on disk while being ignored by Git.
-  - Added `.agents` to both `backend/.dockerignore` and `frontend/.dockerignore`.
+- **Docker Hub Images in Compose**:
+  - `backend`: Image set to `nishanthsaravanan503/netflix-backend:latest`, port 8000 unmapped from host (`expose: - "8000"`).
+  - `frontend`: Image set to `nishanthsaravanan503/netflix-frontend:latest`, port 80 mapped to host (`ports: - "80:80"`).
+- **GitHub Actions Two-Stage Workflow**:
+  - `build-and-push`: Runs on GitHub runner, authenticates with Docker Hub using `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`, builds backend & frontend Dockerfiles, pushes tags `latest` and commit SHA.
+  - `deploy`: Runs on EC2 via SSH, pulls pre-built images with `docker compose pull`, restarts containers without building on EC2, runs health checks.
+- **Port 8000 Isolation**:
+  - Backend API calls from clients route exclusively through Nginx on Port 80 (`location /api/ -> http://backend:8000`).
+  - Port 8000 is blocked from external access on EC2.
+- **Complete RDS Secrets Security**:
+  - All AWS RDS credentials (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DATABASE_URL`) are now 100% extracted from codebase into GitHub Secrets.
+  - Zero hardcoded RDS URLs or passwords remain in tracked files.
+
+
+
 
 

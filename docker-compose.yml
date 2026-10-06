@@ -1,29 +1,16 @@
 services:
   # Backend Service (Node.js & Express connected to AWS RDS PostgreSQL)
   backend:
+    image: ${DOCKERHUB_USERNAME:-nishanthsaravanan503}/netflix-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: netflix-backend
     restart: unless-stopped
-    ports:
-      - "8000:8000"
-    environment:
-      - NODE_ENV=production
-      - SERVER_PORT=8000
-      - CLIENT_URL=${CLIENT_URL:-http://localhost}
-      - JWT_SECRET=${JWT_SECRET:-netflix_super_secret_jwt_key_2026}
-      - TMDB_API_KEY=${TMDB_API_KEY:-}
-      - MAILTRAP_TOKEN=${MAILTRAP_TOKEN:-}
-      - MAILTRAP_ENDPOINT=${MAILTRAP_ENDPOINT:-}
-      # AWS RDS PostgreSQL Configuration
-      - DATABASE_URL=${DATABASE_URL:-}
-      - DB_HOST=${DB_HOST:-netflix-db-cluster.czg2ay4ugjsp.us-east-2.rds.amazonaws.com}
-      - DB_PORT=${DB_PORT:-5432}
-      - DB_USER=${DB_USER:-nishanth}
-      - DB_PASSWORD=${DB_PASSWORD:-}
-      - DB_NAME=${DB_NAME:-netflix}
-      - DB_SSL=${DB_SSL:-true}
+    expose:
+      - "8000"
+    env_file:
+      - .env
     volumes:
       - video_uploads:/app/uploads
     networks:
@@ -31,6 +18,7 @@ services:
 
   # Frontend Service (React + Vite served via Nginx)
   frontend:
+    image: ${DOCKERHUB_USERNAME:-nishanthsaravanan503}/netflix-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile

@@ -37,12 +37,19 @@ else
   FAILED=1
 fi
 
-echo "--- Backend API Port 8000 Check ---"
-if curl -fs http://localhost:8000 > /dev/null || curl -s http://localhost:8000/api/v1/auth/authCheck > /dev/null; then
-  echo "✅ Backend API check passed (Port 8000 responding)"
+echo "--- Backend API via Nginx (Port 80) Check ---"
+if curl -fs http://localhost:80/api/v1/custom-videos > /dev/null; then
+  echo "✅ Backend API check via Nginx passed (Port 80 /api/ responding)"
 else
-  echo "❌ Backend API check failed (Port 8000)"
+  echo "❌ Backend API check via Nginx failed (Port 80 /api/)"
   FAILED=1
+fi
+
+echo "--- Backend Port 8000 Isolation Check ---"
+if curl -s --connect-timeout 2 http://localhost:8000 > /dev/null 2>&1; then
+  echo "⚠️ Warning: Backend Port 8000 is directly accessible on host (should be isolated behind Nginx)"
+else
+  echo "✅ Security Check Passed: Backend Port 8000 is isolated from host and routed strictly through Nginx"
 fi
 
 if [ "$FAILED" -ne 0 ]; then
