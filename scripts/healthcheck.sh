@@ -2,7 +2,7 @@
 set -e
 
 echo "=== 5. Verifying Application Containers and AWS RDS Connectivity ==="
-sleep 10
+sleep 5
 
 REQUIRED_CONTAINERS=("netflix-frontend" "netflix-backend")
 FAILED=0
@@ -29,7 +29,7 @@ for c in "${REQUIRED_CONTAINERS[@]}"; do
   fi
 done
 
-echo "--- HTTP Port 80 Check ---"
+echo "--- HTTP Port 80 Check (Frontend SPA) ---"
 if curl -fs http://localhost:80 > /dev/null; then
   echo "✅ Frontend HTTP check passed (Port 80 responding)"
 else
@@ -37,11 +37,53 @@ else
   FAILED=1
 fi
 
-echo "--- Backend API via Nginx (Port 80) Check ---"
-if curl -fs http://localhost:80/api/v1/custom-videos > /dev/null; then
-  echo "✅ Backend API check via Nginx passed (Port 80 /api/ responding)"
-else
-  echo "❌ Backend API check via Nginx failed (Port 80 /api/)"
+echo "--- Backend API via Nginx (Port 80 /api/health) Check ---"
+HEALTH_OK=0
+for i in {1..6}; do
+  HTTP_CODE=$(curl -s -o /tmp/health_resp.txt -w "%{http_code}" http://localhost:80/api/health || echo "000")
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo "✅ Backend API health check passed via Nginx (Attempt $i: HTTP 200)"
+    HEALTH_OK=1
+    break
+  else
+    echo "⏳ Attempt $i/6: /api/health returned HTTP $HTTP_CODE, retrying in 5s..."
+    sleep 5
+  fi
+done
+
+if [ "$HEALTH_OK" -ne 1 ]; then
+  echo "❌ Backend API health check failed via Nginx (Last HTTP Code: $HTTP_CODE)"
+  echo "--- Health Response ---"
+  cat /tmp/health_resp.txt 2>/dev/null || true
+  echo ""
+  echo "--- Backend Logs ---"
+  docker logs netflix-backend --tail 50 2>&1 || true
+  echo "--- Nginx Logs ---"
+  docker logs netflix-frontend --tail 50 2>&1 || true
+  FAILED=1
+fi
+
+echo "--- Database Query Check (/api/v1/custom-videos) ---"
+DB_OK=0
+for i in {1..6}; do
+  HTTP_CODE=$(curl -s -o /tmp/db_resp.txt -w "%{http_code}" http://localhost:80/api/v1/custom-videos || echo "000")
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo "✅ Database connectivity verified via Nginx (Attempt $i: HTTP 200)"
+    DB_OK=1
+    break
+  else
+    echo "⏳ Attempt $i/6: /api/v1/custom-videos returned HTTP $HTTP_CODE, waiting 5s for DB connection..."
+    sleep 5
+  fi
+done
+
+if [ "$DB_OK" -ne 1 ]; then
+  echo "❌ Database query check failed via Nginx (Last HTTP Code: $HTTP_CODE)"
+  echo "--- DB Query Response ---"
+  cat /tmp/db_resp.txt 2>/dev/null || true
+  echo ""
+  echo "--- Backend Logs ---"
+  docker logs netflix-backend --tail 50 2>&1 || true
   FAILED=1
 fi
 

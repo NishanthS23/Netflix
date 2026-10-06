@@ -59,6 +59,11 @@ export const expressServer = () => {
   app.use('/api/v1/movie', protectedRoute, movieRoutes);
   app.use('/api/v1/tv', protectedRoute, tvRoutes);
   app.use('/api/v1/search', protectedRoute, searchRoutes);
+  // Dedicated health check endpoint
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', uptime: process.uptime() });
+  });
+
   app.use('/api/v1/custom-videos', customVideoRoutes);
 
   // Serves the production build of the frontend if the NODE_ENV environment variable is set to "production".
