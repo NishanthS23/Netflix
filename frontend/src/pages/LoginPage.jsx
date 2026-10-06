@@ -7,6 +7,7 @@ import Logo from '../components/SiteLogo';
 import Input from '../components/Input';
 import MotionDiv from '../components/MotionDiv';
 import MotionButton from '../components/MotionButton';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 import { useAuthStore } from '../store/auth.store.js';
 
 const LoginPage = () => {
@@ -67,6 +68,10 @@ const LoginPage = () => {
               {isLoggingIn ? <Loader className="size-6 animate-spin mx-auto" /> : 'Sign In'}
             </MotionButton>
           </form>
+
+          {/* Google Sign-In */}
+          <GoogleAuthButton text="signin_with" />
+
           <div className="text-center text-gray-400">
             Don&apos;t have an Account?{' '}
             <Link to="/signup" className="text-red-400 hover:underline">

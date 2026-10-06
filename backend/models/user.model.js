@@ -22,6 +22,7 @@ function mapRowToUser(row) {
     resetPasswordExpiresAt: row.reset_password_expires_at,
     verificationToken: row.verification_token,
     verificationExpiresAt: row.verification_expires_at,
+    googleId: row.google_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     _isExisting: true,
@@ -43,6 +44,7 @@ export class User {
     this.resetPasswordExpiresAt = data.resetPasswordExpiresAt || null;
     this.verificationToken = data.verificationToken || null;
     this.verificationExpiresAt = data.verificationExpiresAt || null;
+    this.googleId = data.googleId || null;
     this.createdAt = data.createdAt || new Date();
     this.updatedAt = data.updatedAt || new Date();
     this._isExisting = Boolean(data._isExisting);
@@ -64,6 +66,7 @@ export class User {
       lastLogin: this.lastLogin,
       profilePic: this.profilePic,
       searchHistory: this.searchHistory,
+      googleId: this.googleId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
@@ -76,11 +79,12 @@ export class User {
   }
 
   async comparePassword(candidatePassword) {
+    if (!this.password) return false;
     return bcrypt.compare(candidatePassword, this.password);
   }
 
   async save() {
-    // Hash password if modified or newly created
+    // Hash password if modified or newly created and non-empty
     if (this.password && this.password !== this._originalPassword && !this.password.startsWith('$2a$') && !this.password.startsWith('$2b$')) {
       this.password = await hashPassword(this.password);
     }
@@ -101,7 +105,8 @@ export class User {
             reset_password_expires_at = $10,
             verification_token = $11,
             verification_expires_at = $12,
-            updated_at = $13
+            updated_at = $13,
+            google_id = $14
         WHERE id = $1
         RETURNING *;
       `;
@@ -119,6 +124,7 @@ export class User {
         this.verificationToken,
         this.verificationExpiresAt,
         this.updatedAt,
+        this.googleId,
       ];
       const res = await pool.query(query, values);
       const updated = mapRowToUser(res.rows[0]);
@@ -129,9 +135,9 @@ export class User {
         INSERT INTO users (
           id, username, email, password, is_verified, last_login, profile_pic,
           search_history, reset_password_token, reset_password_expires_at,
-          verification_token, verification_expires_at, created_at, updated_at
+          verification_token, verification_expires_at, created_at, updated_at, google_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *;
       `;
       const values = [
@@ -149,6 +155,7 @@ export class User {
         this.verificationExpiresAt,
         this.createdAt,
         this.updatedAt,
+        this.googleId,
       ];
       const res = await pool.query(query, values);
       const created = mapRowToUser(res.rows[0]);
@@ -169,6 +176,10 @@ export class User {
     if (criteria.username) {
       whereClauses.push(`username = $${idx++}`);
       values.push(criteria.username);
+    }
+    if (criteria.googleId) {
+      whereClauses.push(`google_id = $${idx++}`);
+      values.push(criteria.googleId);
     }
     if (criteria.verificationToken) {
       whereClauses.push(`verification_token = $${idx++}`);

@@ -46,6 +46,22 @@ export const useAuthStore = create((set) => ({
   },
 
   /**
+   * Authenticates user via Google credential ID token.
+   */
+  googleLogin: async (credential) => {
+    set({ user: null, isLoggingIn: true, error: null });
+    try {
+      const res = await axios.post('/api/v1/account/google', { credential });
+      set({ user: res.data.user, isLoggingIn: false });
+      return res.data;
+    } catch (error) {
+      const msg = error.response?.data?.message || 'Failed to sign in with Google';
+      set({ isLoggingIn: false, error: msg });
+      throw error;
+    }
+  },
+
+  /**
    * Logs out the current user.
    *
    * This function sends a request to the server to log out the user.

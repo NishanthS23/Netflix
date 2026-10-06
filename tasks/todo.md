@@ -74,6 +74,29 @@
 - **Workflow YAML Indentation**:
   - Replaced unindented heredoc in `deploy.yml` with properly indented command group `{ echo "..."; } > .env.temp` so GitHub Actions parses the workflow without syntax errors. Validated with `yaml.safe_load`.
 
+## SMTP Mail Authentication & Google Sign-In
+- [x] 1. Backend: Install `nodemailer` and `google-auth-library`.
+- [x] 2. Database & Models: Add `google_id` column to PostgreSQL `users` table and update `User` model to handle Google users with optional passwords.
+- [x] 3. SMTP Service: Create `backend/services/email.service.js` with `nodemailer` transporter and responsive Netflix-branded HTML email templates for OTP verification, welcome, and password resets.
+- [x] 4. Google Auth Controller: Add `googleLogin` endpoint in `backend/controllers/auth.controller.js` and register `POST /api/v1/account/google` route.
+- [x] 5. Frontend Google Integration: Install `@react-oauth/google`, create `<GoogleAuthButton />`, integrate with `LoginPage.jsx` and `SignUpPage.jsx`, and update `useAuthStore`.
+- [x] 6. Configuration & CI/CD: Update `.env.example`, `.env`, `docker-compose.yml`, `scripts/create_env.sh`, and `.github/workflows/deploy.yml` with new SMTP and Google OAuth variables.
+- [x] 7. Verification: Test builds (`npm run build`, `node --check`), verify fallback mechanisms, and test end-to-end authentication flows.
+
+## SMTP & Google Auth Review & Verification
+- **SMTP Authentication Verification**:
+  - Nodemailer configured for Gmail (`smtp.gmail.com:587`).
+  - Successfully ran active SMTP verification check against Gmail servers: `GMAIL_SMTP_VERIFIED_SUCCESSFULLY`.
+  - Netflix-branded HTML emails with 6-digit OTP codes, welcome greeting, and reset password actions.
+- **Google Sign-In Verification**:
+  - Google Client ID `315922735623-r9kc8d4jaau51e52up31vgg2e2ehq5g4.apps.googleusercontent.com` integrated on frontend and backend.
+  - `@react-oauth/google` integrated into `LoginPage` and `SignUpPage` with custom dark-themed `<GoogleAuthButton />`.
+  - Frontend compiled successfully with `npm run build` in 45.03s.
+  - Backend `POST /api/v1/account/google` verified with `node --check`.
+  - Idempotent database schema migration added for `google_id` and nullable passwords in PostgreSQL `users` table.
+
+
+
 
 
 

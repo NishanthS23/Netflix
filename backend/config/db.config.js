@@ -71,6 +71,8 @@ export const connectDB = async () => {
         );
 
         ALTER TABLE custom_videos ADD COLUMN IF NOT EXISTS views INT DEFAULT 0;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255);
+        ALTER TABLE users ALTER COLUMN password DROP NOT NULL;
       `);
       console.log('PostgreSQL tables initialized and ready.');
     } catch (tableErr) {

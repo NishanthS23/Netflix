@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/user.model.js';
 import { ENV_VARS } from '../config/env.config.js';
 import { generateTokenAndSetCookie, generateVerificationToken } from '../helpers/helper.js';
@@ -7,7 +8,9 @@ import {
   sendWelcomeEmail,
   sendPasswordResetEmail,
   sendPasswordResetSuccessEmail,
-} from '../services/mailtrap.service.js';
+} from '../services/email.service.js';
+
+const googleClient = new OAuth2Client(ENV_VARS.GOOGLE_CLIENT_ID);
 
 /**
  * Handles the signup request by validating user input, checking for existing users,
@@ -283,3 +286,80 @@ export const checkAuth = async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
+
+/**
+ * Handles Google Sign-In by verifying the Google ID Token credential,
+ * auto-registering or linking the account, and establishing a user session.
+ */
+export const googleLogin = async (req, res) => {
+  const { credential } = req.body;
+  try {
+    if (!credential) {
+      return res.status(400).json({ success: false, message: 'Google credential token is required' });
+    }
+
+    // Verify Google ID Token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: ENV_VARS.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(400).json({ success: false, message: 'Invalid Google authentication token' });
+    }
+
+    const { sub: googleId, email, name, picture } = payload;
+
+    // Find existing user by googleId or email
+    let user = await User.findOne({ googleId });
+    if (!user) {
+      user = await User.findOne({ email });
+    }
+
+    if (user) {
+      // Link Google ID and mark verified
+      if (!user.googleId) {
+        user.googleId = googleId;
+      }
+      user.isVerified = true;
+      user.lastLogin = new Date();
+      if (picture && (!user.profilePic || user.profilePic.startsWith('/avatar'))) {
+        user.profilePic = picture;
+      }
+      await user.save();
+    } else {
+      // New user registration via Google
+      const baseName = (name || email.split('@')[0]).replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() || 'user';
+      const uniqueSuffix = crypto.randomBytes(3).toString('hex');
+      const username = `${baseName}_${uniqueSuffix}`;
+
+      user = new User({
+        username,
+        email,
+        googleId,
+        isVerified: true,
+        profilePic: picture || undefined,
+        password: null,
+      });
+      await user.save();
+    }
+
+    // Generate JWT cookie session
+    const token = generateTokenAndSetCookie(user._id, res);
+
+    res.status(200).json({
+      success: true,
+      message: 'Google Sign-In successful',
+      user: {
+        ...user._doc,
+        password: undefined,
+        accessToken: token,
+      },
+    });
+  } catch (error) {
+    console.error('Error in googleLogin controller:', error.message);
+    res.status(401).json({ success: false, message: 'Google authentication failed: ' + error.message });
+  }
+};
+

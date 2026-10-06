@@ -18,4 +18,8 @@
   3. Bundle production `.env` files and base64-encode them on the runner (`base64 | tr -d '\r\n'`), decoding on the target server via `echo "$ENV_B64" | base64 -d > .env`. Base64 contains zero newlines or special characters, completely eliminating command line injection risks.
 - **Heredocs in YAML `run: |` blocks**: Never drop lines to column 0 inside a YAML literal scalar block (`run: |`). Standard YAML parsers interpret column 0 as the end of the block, causing subsequent lines to be parsed as invalid root YAML keys. Always use indented shell command grouping (e.g. `{ echo "..."; } > file`) or properly indented heredocs to maintain YAML indentation.
 
+## Docker & Client-Side Environment Best Practices
+- **Docker Compose `.env` Variable Quoting**: Complex strings containing angle brackets or spaces like `EMAIL_FROM="Netflix Clone <user@gmail.com>"` must be wrapped entirely in quotes. Partial quoting like `"Name" <user@email>` causes Compose to fail parsing with `unexpected character "<" in variable name`.
+- **Vite Client-Side Build Arguments in Docker**: Variables prefixed with `VITE_*` are baked into JavaScript bundles at build time (compile-time) rather than container runtime. When dockerizing Vite applications, declare `ARG VITE_*` and `ENV VITE_*=$VITE_*` before `RUN npm run build`, and pass them via `build-args` in Docker Compose and CI/CD pipelines.
+
 

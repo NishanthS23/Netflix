@@ -12,6 +12,10 @@ RUN npm install
 # Copy application source code
 COPY . .
 
+# Build argument for Vite client-side Google Client ID
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 # Build production assets into dist/
 RUN npm run build
 

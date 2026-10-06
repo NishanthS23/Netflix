@@ -45,9 +45,20 @@ export const ENV_VARS = {
   // TMDB API configuration
   TMDB_API_KEY: sanitizeEnvString(process.env.TMDB_API_KEY),
 
-  // Mailtrap SMTP configuration
+  // Mailtrap legacy configuration
   MAILTRAP_TOKEN: sanitizeEnvString(process.env.MAILTRAP_TOKEN),
   MAILTRAP_ENDPOINT: sanitizeEnvString(process.env.MAILTRAP_ENDPOINT),
+
+  // Universal SMTP Email Configuration (Nodemailer: Gmail / Mailtrap / SES)
+  SMTP_HOST: sanitizeEnvString(process.env.SMTP_HOST) || 'smtp.gmail.com',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
+  SMTP_USER: sanitizeEnvString(process.env.SMTP_USER),
+  SMTP_PASS: sanitizeEnvString(process.env.SMTP_PASS),
+  EMAIL_FROM: sanitizeEnvString(process.env.EMAIL_FROM) || '"Netflix Clone" <no-reply@netflix-clone.com>',
+
+  // Google OAuth Configuration
+  GOOGLE_CLIENT_ID: sanitizeEnvString(process.env.GOOGLE_CLIENT_ID),
 
   // PostgreSQL Database configuration
   DATABASE_URL: sanitizeEnvString(process.env.DATABASE_URL),

@@ -8,6 +8,7 @@ import Input from '../components/Input';
 import MotionDiv from '../components/MotionDiv';
 import MotionButton from '../components/MotionButton';
 import PasswordStrengthMeter from '../components/PasswordStrengthMeter';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 import { useAuthStore } from '../store/auth.store.js';
 
 const SignUpPage = () => {
@@ -96,6 +97,10 @@ const SignUpPage = () => {
               {isSigningUp ? <Loader className="size-6 animate-spin mx-auto" /> : 'Sign Up'}
             </MotionButton>
           </form>
+
+          {/* Google Sign-In */}
+          <GoogleAuthButton text="signup_with" />
+
           <div className="text-center text-gray-400">
             Already a member?{' '}
             <Link to="/login" className="text-red-400 hover:underline">

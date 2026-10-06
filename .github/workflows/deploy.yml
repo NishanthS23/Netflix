@@ -40,6 +40,8 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
+          build-args: |
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID || '315922735623-r9kc8d4jaau51e52up31vgg2e2ehq5g4.apps.googleusercontent.com' }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME || 'nishanthsaravanan503' }}/netflix-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME || 'nishanthsaravanan503' }}/netflix-frontend:${{ github.sha }}
@@ -73,11 +75,17 @@ jobs:
           CLEAN_DB_HOST=$(clean_token "${{ secrets.DB_HOST }}")
           CLEAN_DB_NAME=$(clean_token "${{ secrets.DB_NAME }}")
           CLEAN_TMDB=$(clean_token "${{ secrets.TMDB_API_KEY }}")
-          CLEAN_MAILTRAP_TOK=$(clean_token "${{ secrets.MAILTRAP_TOKEN }}")
-          CLEAN_MAILTRAP_EP=$(clean_token "${{ secrets.MAILTRAP_ENDPOINT }}")
           CLEAN_DH_USER=$(clean_token "${{ secrets.DOCKERHUB_USERNAME || 'nishanthsaravanan503' }}")
           CLEAN_DB_URL=$(clean_str "${{ secrets.DATABASE_URL }}")
           CLEAN_DH_TOKEN=$(clean_token "${{ secrets.DOCKERHUB_TOKEN }}")
+
+          CLEAN_SMTP_HOST=$(clean_token "${{ secrets.SMTP_HOST || 'smtp.gmail.com' }}")
+          CLEAN_SMTP_PORT=$(clean_token "${{ secrets.SMTP_PORT || '587' }}")
+          CLEAN_SMTP_SECURE=$(clean_token "${{ secrets.SMTP_SECURE || 'false' }}")
+          CLEAN_SMTP_USER=$(clean_token "${{ secrets.SMTP_USER || 'zxeoncyber1@gmail.com' }}")
+          CLEAN_SMTP_PASS=$(clean_str "${{ secrets.SMTP_PASS || 'gvjimmuwjjuvpfpe' }}")
+          CLEAN_EMAIL_FROM=$(clean_str "${{ secrets.EMAIL_FROM || 'Netflix Clone <zxeoncyber1@gmail.com>' }}")
+          CLEAN_GOOGLE_CLIENT_ID=$(clean_token "${{ secrets.GOOGLE_CLIENT_ID || '315922735623-r9kc8d4jaau51e52up31vgg2e2ehq5g4.apps.googleusercontent.com' }}")
 
           if [ -n "${CLEAN_DB_URL}" ]; then
             DATABASE_URL="${CLEAN_DB_URL}"
@@ -100,8 +108,14 @@ jobs:
             echo "DB_SSL=true"
             echo "DATABASE_URL=${DATABASE_URL}"
             echo "TMDB_API_KEY=${CLEAN_TMDB}"
-            echo "MAILTRAP_TOKEN=${CLEAN_MAILTRAP_TOK}"
-            echo "MAILTRAP_ENDPOINT=${CLEAN_MAILTRAP_EP}"
+            echo "SMTP_HOST=${CLEAN_SMTP_HOST}"
+            echo "SMTP_PORT=${CLEAN_SMTP_PORT}"
+            echo "SMTP_SECURE=${CLEAN_SMTP_SECURE}"
+            echo "SMTP_USER=${CLEAN_SMTP_USER}"
+            echo "SMTP_PASS=${CLEAN_SMTP_PASS}"
+            echo "EMAIL_FROM=\"${CLEAN_EMAIL_FROM}\""
+            echo "GOOGLE_CLIENT_ID=${CLEAN_GOOGLE_CLIENT_ID}"
+            echo "VITE_GOOGLE_CLIENT_ID=${CLEAN_GOOGLE_CLIENT_ID}"
             echo "DOCKERHUB_USERNAME=${CLEAN_DH_USER}"
           } > .env.temp
 

@@ -19,6 +19,7 @@ import {
   verifyEmail,
   forgotPassword,
   resetPassword,
+  googleLogin,
 } from '../controllers/auth.controller.js';
 
 /**
@@ -49,6 +50,14 @@ router.post('/signup', signup);
  * @route /api/v1/account/login
  */
 router.post('/login', login);
+
+/**
+ * POST request handler for Google Sign-In.
+ *
+ * @method POST
+ * @route /api/v1/account/google
+ */
+router.post('/google', googleLogin);
 
 /**
  * POST request handler for user logout.
