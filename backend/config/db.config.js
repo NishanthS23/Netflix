@@ -7,9 +7,10 @@ const { Pool } = pg;
 let poolConfig = {};
 
 if (ENV_VARS.DATABASE_URL) {
+  const cleanConnectionString = ENV_VARS.DATABASE_URL.replace(/[\?&]sslmode=[^&]+/gi, '');
   poolConfig = {
-    connectionString: ENV_VARS.DATABASE_URL,
-    ssl: ENV_VARS.DB_SSL ? { rejectUnauthorized: false } : false,
+    connectionString: cleanConnectionString,
+    ssl: { rejectUnauthorized: false },
   };
 } else {
   poolConfig = {
@@ -18,7 +19,7 @@ if (ENV_VARS.DATABASE_URL) {
     user: ENV_VARS.DB_USER,
     password: ENV_VARS.DB_PASSWORD,
     database: ENV_VARS.DB_NAME,
-    ssl: ENV_VARS.DB_SSL ? { rejectUnauthorized: false } : false,
+    ssl: { rejectUnauthorized: false },
   };
 }
 
