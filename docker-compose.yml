@@ -63,9 +63,9 @@ services:
 
 volumes:
   mongo_data:
-    driver: local
+    name: devops_mongo_data
   video_uploads:
-    driver: local
+    name: devops_video_uploads
 
 networks:
   netflix-network:
