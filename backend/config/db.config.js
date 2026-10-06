@@ -65,9 +65,12 @@ export const connectDB = async () => {
           thumbnail_file_id VARCHAR(64),
           user_id VARCHAR(64) NOT NULL,
           username VARCHAR(255) NOT NULL,
+          views INT DEFAULT 0,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        ALTER TABLE custom_videos ADD COLUMN IF NOT EXISTS views INT DEFAULT 0;
       `);
       console.log('PostgreSQL tables initialized and ready.');
     } catch (tableErr) {

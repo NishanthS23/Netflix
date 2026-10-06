@@ -50,6 +50,10 @@ export class User {
   }
 
   get _doc() {
+    return this.toObject();
+  }
+
+  toObject() {
     return {
       _id: this.id,
       id: this.id,
@@ -63,6 +67,12 @@ export class User {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
+  }
+
+  toJSON() {
+    const obj = this.toObject();
+    delete obj.password;
+    return obj;
   }
 
   async comparePassword(candidatePassword) {

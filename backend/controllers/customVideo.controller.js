@@ -88,7 +88,7 @@ export const getAllCustomVideos = async (req, res) => {
     const videos = await CustomVideo.find().sort({ createdAt: -1 });
 
     const formattedVideos = videos.map((v) => {
-      const obj = v.toObject();
+      const obj = typeof v.toObject === 'function' ? v.toObject() : { ...v };
       if (obj.thumbnailPath && !obj.thumbnailFileId) {
         obj.thumbnailFileId = obj._id;
       }
@@ -114,10 +114,10 @@ export const getCustomVideoById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Custom video not found' });
     }
 
-    video.views += 1;
+    video.views = Number(video.views || 0) + 1;
     await video.save();
 
-    const obj = video.toObject();
+    const obj = typeof video.toObject === 'function' ? video.toObject() : { ...video };
     if (obj.thumbnailPath && !obj.thumbnailFileId) {
       obj.thumbnailFileId = obj._id;
     }
