@@ -58,6 +58,7 @@ jobs:
             EOF
 
             echo "=== 4. Starting Docker Compose build and deployment ==="
+            docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
             docker compose --env-file .env up -d --build --remove-orphans
 
             echo "=== 5. Running Health Check ==="
