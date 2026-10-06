@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 set -e
 
-CLIENT_HOST="${1:-localhost}"
-JWT_SEC="${2:-}"
-DB_USER_VAL="${3:-}"
-DB_PASS_VAL="${4:-}"
-DB_HOST_VAL="${5:-}"
-DB_NAME_VAL="${6:-}"
-TMDB_KEY="${7:-}"
-MAILTRAP_TOK="${8:-}"
-MAILTRAP_EP="${9:-}"
-DOCKERHUB_USER="${10:-nishanthsaravanan503}"
-DATABASE_URL_VAL="${11:-}"
+# Strip all Windows CRLF (\r), newlines (\n), and whitespace from secret inputs
+clean_val() {
+  printf '%s' "$1" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
+CLIENT_HOST=$(clean_val "${1:-localhost}")
+JWT_SEC=$(clean_val "${2:-}")
+DB_USER_VAL=$(clean_val "${3:-}")
+DB_PASS_VAL=$(clean_val "${4:-}")
+DB_HOST_VAL=$(clean_val "${5:-}")
+DB_NAME_VAL=$(clean_val "${6:-}")
+TMDB_KEY=$(clean_val "${7:-}")
+MAILTRAP_TOK=$(clean_val "${8:-}")
+MAILTRAP_EP=$(clean_val "${9:-}")
+DOCKERHUB_USER=$(clean_val "${10:-nishanthsaravanan503}")
+DATABASE_URL_VAL=$(clean_val "${11:-}")
 
 # Construct DATABASE_URL if not directly supplied
 if [ -n "${DATABASE_URL_VAL}" ]; then
