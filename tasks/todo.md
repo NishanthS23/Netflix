@@ -47,6 +47,14 @@
 - [x] 3. Update `.github/workflows/deploy.yml` to pass RDS secrets (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DATABASE_URL`) from GitHub Secrets
 - [x] 4. Verify syntax with `node --check` and `docker compose config`
 
+## Drone SSH Injection & Secrets Sanitization Fix
+- [x] 1. Root Cause Analysis: Trailing newlines in GitHub Secrets caused Drone SSH to split command arguments across lines and inject `DRONE_SSH_PREV_COMMAND_EXIT_CODE=0 ; if [ 0 -ne 0 ]; then exit 0; fi;` directly into `DB_HOST` and `JWT_SECRET`.
+- [x] 2. Update `.github/workflows/deploy.yml` runner step to sanitize all secrets (`tr -d '\r\n'` / `tr -d '\r\n '`) and base64-encode `.env` (`base64 | tr -d '\r\n'`).
+- [x] 3. Update EC2 deployment step in `.github/workflows/deploy.yml` to safely decode base64 into `.env` with file permissions 600.
+- [x] 4. Update `scripts/create_env.sh` with `clean_token` and `clean_val` regex stripping `DRONE_SSH_PREV_COMMAND_EXIT_CODE=.*` and adding environment variable fallbacks.
+- [x] 5. Add defensive `sanitizeEnvString()` in `backend/config/env.config.js` to strip any lingering Drone SSH exit code injections at runtime.
+- [x] 6. Verify Node.js syntax and git diffs before committing.
+
 ## Review & Verification
 - **Docker Hub Images in Compose**:
   - `backend`: Image set to `nishanthsaravanan503/netflix-backend:latest`, port 8000 unmapped from host (`expose: - "8000"`).
@@ -60,6 +68,10 @@
 - **Complete RDS Secrets Security**:
   - All AWS RDS credentials (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DATABASE_URL`) are now 100% extracted from codebase into GitHub Secrets.
   - Zero hardcoded RDS URLs or passwords remain in tracked files.
+- **Drone SSH / Multiline Secret Defense**:
+  - Trailing newlines in secrets cannot corrupt command strings because production `.env` is created and base64 encoded on the GitHub runner.
+  - Decoding on EC2 via `echo "${{ env.ENV_B64 }}" | base64 -d > .env` guarantees zero line breaks in the SSH command and byte-for-byte exact configuration.
+
 
 
 

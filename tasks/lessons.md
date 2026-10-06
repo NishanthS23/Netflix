@@ -9,3 +9,11 @@
 - **Prevent Heavy Runtime Artifact Leaks**: When introducing disk volume file storage (e.g., custom video/image uploads), immediately add `uploads/` and `**/uploads/` to `.gitignore` and `.dockerignore`. Failing to do so can cause multi-gigabyte media uploads to accidentally leak into Git history or bloat Docker build contexts.
 - **Dead Migration Artifacts**: Following a database engine migration (e.g., MongoDB -> PostgreSQL), thoroughly search for and prune dead imports, unused driver dependencies (e.g., `mongoose`), and legacy storage services (e.g., `GridFS`) to keep container images lean and code maintainable.
 
+## CI/CD & Drone SSH Multiline Secret Injection
+- **Drone SSH Line Splitting**: Actions like `appleboy/ssh-action` (backed by Drone SSH) append exit code evaluation (`DRONE_SSH_PREV_COMMAND_EXIT_CODE=...`) to every single physical line in the `script: |` block.
+- **Embedded Newlines in Secrets**: If a secret in GitHub Secrets contains an accidental trailing newline (common when pasting from AWS Console), interpolating `${{ secrets.VAR }}` inside the multi-line script causes Drone SSH to treat the trailing newline as a command boundary, injecting the exit code check directly into the string value (e.g., `mydb.rds.amazonaws.comDRONE_SSH_PREV_COMMAND_EXIT_CODE=...`).
+- **Airtight Fix**:
+  1. Never interpolate un-sanitized secrets directly into multi-line SSH script commands.
+  2. Strip CRLF/newlines on the GitHub runner (`printf '%s' "$val" | tr -d '\r\n '`).
+  3. Bundle production `.env` files and base64-encode them on the runner (`base64 | tr -d '\r\n'`), decoding on the target server via `echo "$ENV_B64" | base64 -d > .env`. Base64 contains zero newlines or special characters, completely eliminating command line injection risks.
+

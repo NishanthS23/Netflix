@@ -25,31 +25,36 @@ dotenv.config({ path: filePath });
  * @property {string} MAILTRAP_ENDPOINT - The endpoint for Mailtrap SMTP service.
  */
 
+const sanitizeEnvString = (val) => {
+  if (typeof val !== 'string') return val;
+  return val.replace(/DRONE_SSH_PREV_COMMAND_EXIT_CODE=.*$/gi, '').trim();
+};
+
 export const ENV_VARS = {
   // APP configuration
-  MONGO_URI: process.env.MONGO_URI,
+  MONGO_URI: sanitizeEnvString(process.env.MONGO_URI),
   PORT: process.env.SERVER_PORT || 8000,
   NODE_ENV: process.env.NODE_ENV || 'development',
   CLIENT_PORT: process.env.CLIENT_PORT || 3000,
-  CLIENT_HOST: process.env.CLIENT_HOST || 'localhost',
-  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
+  CLIENT_HOST: sanitizeEnvString(process.env.CLIENT_HOST) || 'localhost',
+  CLIENT_URL: sanitizeEnvString(process.env.CLIENT_URL) || 'http://localhost:5173',
 
   // JWT configuration
-  JWT_SECRET: process.env.JWT_SECRET,
+  JWT_SECRET: sanitizeEnvString(process.env.JWT_SECRET),
 
   // TMDB API configuration
-  TMDB_API_KEY: process.env.TMDB_API_KEY,
+  TMDB_API_KEY: sanitizeEnvString(process.env.TMDB_API_KEY),
 
   // Mailtrap SMTP configuration
-  MAILTRAP_TOKEN: process.env.MAILTRAP_TOKEN,
-  MAILTRAP_ENDPOINT: process.env.MAILTRAP_ENDPOINT,
+  MAILTRAP_TOKEN: sanitizeEnvString(process.env.MAILTRAP_TOKEN),
+  MAILTRAP_ENDPOINT: sanitizeEnvString(process.env.MAILTRAP_ENDPOINT),
 
   // PostgreSQL Database configuration
-  DATABASE_URL: process.env.DATABASE_URL,
-  DB_HOST: process.env.DB_HOST,
+  DATABASE_URL: sanitizeEnvString(process.env.DATABASE_URL),
+  DB_HOST: sanitizeEnvString(process.env.DB_HOST),
   DB_PORT: parseInt(process.env.DB_PORT || '5432', 10),
-  DB_USER: process.env.DB_USER,
-  DB_PASSWORD: process.env.DB_PASSWORD,
-  DB_NAME: process.env.DB_NAME,
+  DB_USER: sanitizeEnvString(process.env.DB_USER),
+  DB_PASSWORD: sanitizeEnvString(process.env.DB_PASSWORD),
+  DB_NAME: sanitizeEnvString(process.env.DB_NAME),
   DB_SSL: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production',
 };

@@ -53,12 +53,63 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Sanitize Secrets
+      - name: Sanitize Secrets & Generate Production Env
         run: |
-          CLEAN_USER=$(echo "${{ secrets.EC2_USER }}" | tr -d '\r\n ')
-          CLEAN_HOST=$(echo "${{ secrets.EC2_HOST }}" | tr -d '\r\n ')
+          clean_str() {
+            printf '%s' "$1" | tr -d '\r\n'
+          }
+          clean_token() {
+            printf '%s' "$1" | tr -d '\r\n '
+          }
+
+          CLEAN_USER=$(clean_token "${{ secrets.EC2_USER }}")
+          CLEAN_HOST=$(clean_token "${{ secrets.EC2_HOST }}")
           echo "EC2_USER=$CLEAN_USER" >> $GITHUB_ENV
           echo "EC2_HOST=$CLEAN_HOST" >> $GITHUB_ENV
+
+          CLEAN_JWT=$(clean_str "${{ secrets.JWT_SECRET }}")
+          CLEAN_DB_USER=$(clean_token "${{ secrets.DB_USER }}")
+          CLEAN_DB_PASS=$(clean_str "${{ secrets.DB_PASSWORD }}")
+          CLEAN_DB_HOST=$(clean_token "${{ secrets.DB_HOST }}")
+          CLEAN_DB_NAME=$(clean_token "${{ secrets.DB_NAME }}")
+          CLEAN_TMDB=$(clean_token "${{ secrets.TMDB_API_KEY }}")
+          CLEAN_MAILTRAP_TOK=$(clean_token "${{ secrets.MAILTRAP_TOKEN }}")
+          CLEAN_MAILTRAP_EP=$(clean_token "${{ secrets.MAILTRAP_ENDPOINT }}")
+          CLEAN_DH_USER=$(clean_token "${{ secrets.DOCKERHUB_USERNAME || 'nishanthsaravanan503' }}")
+          CLEAN_DB_URL=$(clean_str "${{ secrets.DATABASE_URL }}")
+          CLEAN_DH_TOKEN=$(clean_token "${{ secrets.DOCKERHUB_TOKEN }}")
+
+          if [ -n "${CLEAN_DB_URL}" ]; then
+            DATABASE_URL="${CLEAN_DB_URL}"
+          elif [ -n "${CLEAN_DB_USER}" ] && [ -n "${CLEAN_DB_HOST}" ]; then
+            DATABASE_URL="postgresql://${CLEAN_DB_USER}:${CLEAN_DB_PASS}@${CLEAN_DB_HOST}:5432/${CLEAN_DB_NAME}?sslmode=require"
+          else
+            DATABASE_URL=""
+          fi
+
+          cat << EOF > .env.temp
+NODE_ENV=production
+SERVER_PORT=8000
+CLIENT_URL=http://${CLEAN_HOST}
+JWT_SECRET=${CLEAN_JWT}
+DB_HOST=${CLEAN_DB_HOST}
+DB_PORT=5432
+DB_USER=${CLEAN_DB_USER}
+DB_PASSWORD=${CLEAN_DB_PASS}
+DB_NAME=${CLEAN_DB_NAME}
+DB_SSL=true
+DATABASE_URL=${DATABASE_URL}
+TMDB_API_KEY=${CLEAN_TMDB}
+MAILTRAP_TOKEN=${CLEAN_MAILTRAP_TOK}
+MAILTRAP_ENDPOINT=${CLEAN_MAILTRAP_EP}
+DOCKERHUB_USERNAME=${CLEAN_DH_USER}
+EOF
+
+          ENV_B64=$(base64 .env.temp | tr -d '\r\n')
+          echo "ENV_B64=$ENV_B64" >> $GITHUB_ENV
+          echo "CLEAN_DH_USER=$CLEAN_DH_USER" >> $GITHUB_ENV
+          echo "CLEAN_DH_TOKEN=$CLEAN_DH_TOKEN" >> $GITHUB_ENV
+          rm -f .env.temp
 
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -84,12 +135,13 @@ jobs:
             git reset --hard origin/main
 
             echo "=== 3. Writing .env file ==="
-            chmod +x scripts/create_env.sh
-            bash scripts/create_env.sh "${{ env.EC2_HOST }}" "${{ secrets.JWT_SECRET }}" "${{ secrets.DB_USER }}" "${{ secrets.DB_PASSWORD }}" "${{ secrets.DB_HOST }}" "${{ secrets.DB_NAME }}" "${{ secrets.TMDB_API_KEY }}" "${{ secrets.MAILTRAP_TOKEN }}" "${{ secrets.MAILTRAP_ENDPOINT }}" "${{ secrets.DOCKERHUB_USERNAME || 'nishanthsaravanan503' }}" "${{ secrets.DATABASE_URL }}"
+            echo "${{ env.ENV_B64 }}" | base64 -d > .env
+            chmod 600 .env
+            echo "Generated .env successfully for ${{ env.EC2_HOST }} without exposing secrets"
 
             echo "=== 4. Pulling Pre-built Images from Docker Hub ==="
-            if [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-              echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME || 'nishanthsaravanan503' }}" --password-stdin
+            if [ -n "${{ env.CLEAN_DH_TOKEN }}" ]; then
+              echo "${{ env.CLEAN_DH_TOKEN }}" | docker login -u "${{ env.CLEAN_DH_USER }}" --password-stdin
             fi
             docker compose --env-file .env pull
 
