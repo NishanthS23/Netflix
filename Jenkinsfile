@@ -96,12 +96,12 @@ pipeline {
                     )]) {
                         if (isUnix()) {
                             sh """
-                                echo "${DH_LOGIN_TOKEN}" | docker login -u "${DH_LOGIN_USER}" --password-stdin
+                                echo "${DH_LOGIN_TOKEN.trim()}" | docker login -u "${DH_LOGIN_USER.trim()}" --password-stdin
                             """
                         } else {
                             powershell """
                                 \$env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;\$env:PATH"
-                                echo "${DH_LOGIN_TOKEN}" | docker login -u "${DH_LOGIN_USER}" --password-stdin
+                                docker login -u '${DH_LOGIN_USER.trim()}' -p '${DH_LOGIN_TOKEN.trim()}'
                             """
                         }
                     }
@@ -219,7 +219,7 @@ chmod 600 .env
 echo "Production .env created successfully"
 
 echo "=== [EC2] 4. Authenticating with Docker Hub on EC2 ==="
-echo "${DH_LOGIN_TOKEN}" | docker login -u "${DH_LOGIN_USER}" --password-stdin
+echo "${DH_LOGIN_TOKEN.trim()}" | docker login -u "${DH_LOGIN_USER.trim()}" --password-stdin
 
 echo "=== [EC2] 5. Pulling Pre-built Docker Images ==="
 docker compose --env-file .env pull
@@ -263,7 +263,7 @@ chmod 600 .env
 echo "Production .env created successfully"
 
 echo "=== [EC2] 4. Authenticating with Docker Hub on EC2 ==="
-echo "${DH_LOGIN_TOKEN}" | docker login -u "${DH_LOGIN_USER}" --password-stdin
+echo "${DH_LOGIN_TOKEN.trim()}" | docker login -u "${DH_LOGIN_USER.trim()}" --password-stdin
 
 echo "=== [EC2] 5. Pulling Pre-built Docker Images ==="
 docker compose --env-file .env pull
