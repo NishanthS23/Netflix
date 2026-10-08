@@ -244,10 +244,12 @@ REMOTE_DEPLOY_EOF
                                     def winKeyPath = SSH_KEY_FILE.replace('/', '\\')
                                     powershell """
                                         # Set strict permissions on private key for Windows OpenSSH (chmod 400 equivalent)
+                                        \$u = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
                                         icacls.exe "${winKeyPath}" /reset | Out-Null
                                         icacls.exe "${winKeyPath}" /inheritance:r | Out-Null
                                         icacls.exe "${winKeyPath}" /grant:r "*S-1-5-32-544:R" | Out-Null
-                                        icacls.exe "${winKeyPath}" /grant:r "\$($env:USERNAME):(R)" | Out-Null
+                                        icacls.exe "${winKeyPath}" /grant:r "*S-1-5-18:R" | Out-Null
+                                        icacls.exe "${winKeyPath}" /grant:r "\${u}:R" | Out-Null
                                         icacls.exe "${winKeyPath}" /remove "BUILTIN\\Users" | Out-Null
                                         icacls.exe "${winKeyPath}" /remove "Authenticated Users" | Out-Null
 
