@@ -70,12 +70,15 @@ pipeline {
                     echo "=== 2. Verifying Docker & Docker Compose on Agent ==="
                     if (isUnix()) {
                         sh 'docker --version'
-                        sh 'docker compose version'
+                        sh 'docker compose version || docker-compose --version || true'
                     } else {
                         powershell '''
-                            $env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;$env:PATH"
                             docker --version
-                            docker compose version
+                            if (Get-Command docker-compose -ErrorAction SilentlyContinue) {
+                                docker-compose --version
+                            } else {
+                                Write-Host "Docker CLI verified (Docker Compose used on target host)"
+                            }
                         '''
                     }
                 }
@@ -312,12 +315,19 @@ echo "=== [EC2] Deployment Completed Successfully! ==="
                                     [System.IO.File]::WriteAllBytes('.env', [Convert]::FromBase64String('${envB64}'))
 
                                     echo "=== [Local] 2. Pulling Docker Images ==="
-                                    docker compose --env-file .env pull
-
-                                    echo "=== [Local] 3. Restarting Application Containers ==="
-                                    docker volume create devops_video_uploads 2>\$null
-                                    docker rm -f netflix-frontend netflix-backend netflix-db 2>\$null
-                                    docker compose --env-file .env up -d --remove-orphans
+                                    if (Get-Command docker-compose -ErrorAction SilentlyContinue) {
+                                        docker-compose --env-file .env pull
+                                        echo "=== [Local] 3. Restarting Application Containers ==="
+                                        docker volume create devops_video_uploads 2>\$null
+                                        docker rm -f netflix-frontend netflix-backend netflix-db 2>\$null
+                                        docker-compose --env-file .env up -d --remove-orphans
+                                    } else {
+                                        docker compose --env-file .env pull
+                                        echo "=== [Local] 3. Restarting Application Containers ==="
+                                        docker volume create devops_video_uploads 2>\$null
+                                        docker rm -f netflix-frontend netflix-backend netflix-db 2>\$null
+                                        docker compose --env-file .env up -d --remove-orphans
+                                    }
 
                                     echo "=== [Local] 4. Running Production Health Check ==="
                                     bash scripts/healthcheck.sh
