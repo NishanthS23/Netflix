@@ -99,7 +99,9 @@ pipeline {
                         } else {
                             powershell '''
                                 $env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;$env:PATH"
-                                echo $env:DH_LOGIN_TOKEN | docker login -u $env:DH_LOGIN_USER --password-stdin
+                                $dhUser = "$env:DH_LOGIN_USER".Trim()
+                                $dhPass = "$env:DH_LOGIN_TOKEN".Trim()
+                                $dhPass | docker login -u $dhUser --password-stdin
                             '''
                         }
                     }
