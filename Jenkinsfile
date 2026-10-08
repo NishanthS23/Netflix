@@ -241,8 +241,16 @@ REMOTE_DEPLOY_EOF
                                     """
                                 } else {
                                     // Windows Agent Deploying to EC2 via SSH
-                                    def cleanKeyPath = SSH_KEY_FILE.replace('\\', '/')
+                                    def winKeyPath = SSH_KEY_FILE.replace('/', '\\')
                                     powershell """
+                                        # Set strict permissions on private key for Windows OpenSSH (chmod 400 equivalent)
+                                        icacls.exe "${winKeyPath}" /reset | Out-Null
+                                        icacls.exe "${winKeyPath}" /inheritance:r | Out-Null
+                                        icacls.exe "${winKeyPath}" /grant:r "*S-1-5-32-544:R" | Out-Null
+                                        icacls.exe "${winKeyPath}" /grant:r "\$($env:USERNAME):(R)" | Out-Null
+                                        icacls.exe "${winKeyPath}" /remove "BUILTIN\\Users" | Out-Null
+                                        icacls.exe "${winKeyPath}" /remove "Authenticated Users" | Out-Null
+
                                         \$deployScript = @'
 set -e
 
@@ -283,7 +291,7 @@ docker image prune -af || true
 echo "=== [EC2] Deployment Completed Successfully! ==="
 '@
 
-                                        \$deployScript | ssh -i "${cleanKeyPath}" -o StrictHostKeyChecking=no -o ConnectTimeout=60 "${params.EC2_USER}@${params.EC2_HOST}" "bash -s"
+                                        \$deployScript | ssh -i "${winKeyPath}" -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o LogLevel=ERROR "${params.EC2_USER}@${params.EC2_HOST}" "bash -s"
                                     """
                                 }
                             }
