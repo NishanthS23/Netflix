@@ -95,14 +95,14 @@ pipeline {
                         passwordVariable: 'DH_LOGIN_TOKEN'
                     )]) {
                         if (isUnix()) {
-                            sh 'echo "$DH_LOGIN_TOKEN" | docker login -u "$DH_LOGIN_USER" --password-stdin'
+                            sh """
+                                echo "${DH_LOGIN_TOKEN}" | docker login -u "${DH_LOGIN_USER}" --password-stdin
+                            """
                         } else {
-                            powershell '''
-                                $env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;$env:PATH"
-                                $dhUser = "$env:DH_LOGIN_USER".Trim()
-                                $dhPass = "$env:DH_LOGIN_TOKEN".Trim()
-                                $dhPass | docker login -u $dhUser --password-stdin
-                            '''
+                            powershell """
+                                \$env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;\$env:PATH"
+                                echo "${DH_LOGIN_TOKEN}" | docker login -u "${DH_LOGIN_USER}" --password-stdin
+                            """
                         }
                     }
                 }
