@@ -17,6 +17,9 @@ pipeline {
     }
 
     environment {
+        // Ensure Docker & Git CLI directories are on PATH for Windows Service agents
+        PATH               = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\cmd;${env.PATH}"
+
         // Jenkins Credentials IDs
         DOCKERHUB_CREDS_ID = 'dockerhub-credentials'
         SECRET_FILE_ID     = 'netflix-secret-file'
@@ -45,7 +48,10 @@ pipeline {
                         ).trim()
                     } else {
                         env.GIT_COMMIT_SHORT = powershell(
-                            script: 'git rev-parse --short HEAD',
+                            script: '''
+                                $env:PATH = "C:\\Program Files\\Git\\cmd;C:\\Program Files\\Git\\bin;$env:PATH"
+                                git rev-parse --short HEAD
+                            ''',
                             returnStdout: true
                         ).trim()
                     }
@@ -66,7 +72,11 @@ pipeline {
                         sh 'docker --version'
                         sh 'docker compose version'
                     } else {
-                        powershell 'docker --version; docker compose version'
+                        powershell '''
+                            $env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;$env:PATH"
+                            docker --version
+                            docker compose version
+                        '''
                     }
                 }
             }
@@ -84,7 +94,10 @@ pipeline {
                         if (isUnix()) {
                             sh 'echo "$DH_LOGIN_TOKEN" | docker login -u "$DH_LOGIN_USER" --password-stdin'
                         } else {
-                            powershell 'echo $env:DH_LOGIN_TOKEN | docker login -u $env:DH_LOGIN_USER --password-stdin'
+                            powershell '''
+                                $env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;$env:PATH"
+                                echo $env:DH_LOGIN_TOKEN | docker login -u $env:DH_LOGIN_USER --password-stdin
+                            '''
                         }
                     }
                 }
@@ -107,6 +120,7 @@ pipeline {
                         """
                     } else {
                         powershell """
+                            \$env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;\$env:PATH"
                             docker build -t ${BACKEND_IMAGE}:latest -t ${BACKEND_IMAGE}:${env.GIT_COMMIT_SHORT} ./backend
                             docker push ${BACKEND_IMAGE}:latest
                             docker push ${BACKEND_IMAGE}:${env.GIT_COMMIT_SHORT}
@@ -133,6 +147,7 @@ pipeline {
                         """
                     } else {
                         powershell """
+                            \$env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;\$env:PATH"
                             docker build --build-arg VITE_GOOGLE_CLIENT_ID="${params.GOOGLE_CLIENT_ID}" -t ${FRONTEND_IMAGE}:latest -t ${FRONTEND_IMAGE}:${env.GIT_COMMIT_SHORT} ./frontend
                             docker push ${FRONTEND_IMAGE}:latest
                             docker push ${FRONTEND_IMAGE}:${env.GIT_COMMIT_SHORT}
@@ -325,7 +340,10 @@ echo "=== [EC2] Deployment Completed Successfully! ==="
                 if (isUnix()) {
                     sh 'docker logout || true'
                 } else {
-                    powershell 'docker logout | Out-Null'
+                    powershell '''
+                        $env:PATH = "C:\\Users\\Work\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;C:\\Program Files\\Docker\\Docker\\resources\\bin;$env:PATH"
+                        docker logout | Out-Null
+                    '''
                 }
             }
         }
