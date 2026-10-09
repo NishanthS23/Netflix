@@ -13,8 +13,8 @@ RUN npm install --omit=dev
 # Copy application source code
 COPY . .
 
-# Ensure uploads directory structure exists
-RUN mkdir -p /app/uploads/videos /app/uploads/thumbnails
+# Ensure temporary upload staging directory exists
+RUN mkdir -p /tmp/netflix-uploads /app/uploads
 
 # Expose backend port
 EXPOSE 8000

@@ -16,29 +16,23 @@ import fs from 'fs';
 
 const router = express.Router();
 
-// Define uploads directories inside the volume (/app/uploads)
+// Define temporary uploads staging directory (eliminates external volume requirement)
 const UPLOADS_DIR = path.resolve('uploads');
 const VIDEOS_DIR = path.join(UPLOADS_DIR, 'videos');
 const THUMBNAILS_DIR = path.join(UPLOADS_DIR, 'thumbnails');
+const TEMP_DIR = path.join(os.tmpdir(), 'netflix-uploads');
 
-// Ensure upload directories exist
-if (!fs.existsSync(VIDEOS_DIR)) {
-  fs.mkdirSync(VIDEOS_DIR, { recursive: true });
-}
-if (!fs.existsSync(THUMBNAILS_DIR)) {
-  fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
-}
+// Ensure staging and upload directories exist
+[TEMP_DIR, VIDEOS_DIR, THUMBNAILS_DIR].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
 
-// Multer disk storage configuration saving directly to volume folders
+// Multer disk storage configuration saving to temporary upload folder
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    if (file.fieldname === 'video') {
-      cb(null, VIDEOS_DIR);
-    } else if (file.fieldname === 'thumbnail') {
-      cb(null, THUMBNAILS_DIR);
-    } else {
-      cb(null, UPLOADS_DIR);
-    }
+    cb(null, TEMP_DIR);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);

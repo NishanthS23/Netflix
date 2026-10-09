@@ -11,8 +11,6 @@ services:
       - "8000"
     env_file:
       - .env
-    volumes:
-      - video_uploads:/app/uploads
     networks:
       - netflix-network
 
@@ -32,11 +30,6 @@ services:
       - backend
     networks:
       - netflix-network
-
-volumes:
-  video_uploads:
-    name: devops_video_uploads
-    external: true
 
 networks:
   netflix-network:

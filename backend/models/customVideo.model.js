@@ -16,6 +16,9 @@ function mapRowToCustomVideo(row) {
     videoSize: Number(row.video_size),
     thumbnailPath: row.thumbnail_path,
     thumbnailFileId: row.thumbnail_file_id,
+    s3Key: row.s3_key,
+    s3ThumbnailKey: row.s3_thumbnail_key,
+    s3Bucket: row.s3_bucket,
     userId: row.user_id,
     username: row.username,
     views: Number(row.views || 0),
@@ -39,6 +42,9 @@ export class CustomVideo {
     this.videoSize = data.videoSize ? Number(data.videoSize) : 0;
     this.thumbnailPath = data.thumbnailPath || null;
     this.thumbnailFileId = data.thumbnailFileId ? String(data.thumbnailFileId) : null;
+    this.s3Key = data.s3Key || null;
+    this.s3ThumbnailKey = data.s3ThumbnailKey || null;
+    this.s3Bucket = data.s3Bucket || null;
     this.userId = data.userId ? String(data.userId) : null;
     this.username = data.username;
     this.views = Number(data.views || 0);
@@ -65,6 +71,9 @@ export class CustomVideo {
       videoSize: this.videoSize,
       thumbnailPath: this.thumbnailPath,
       thumbnailFileId: this.thumbnailFileId,
+      s3Key: this.s3Key,
+      s3ThumbnailKey: this.s3ThumbnailKey,
+      s3Bucket: this.s3Bucket,
       userId: this.userId,
       username: this.username,
       views: this.views,
@@ -93,10 +102,13 @@ export class CustomVideo {
             video_size = $9,
             thumbnail_path = $10,
             thumbnail_file_id = $11,
-            user_id = $12,
-            username = $13,
-            views = $14,
-            updated_at = $15
+            s3_key = $12,
+            s3_thumbnail_key = $13,
+            s3_bucket = $14,
+            user_id = $15,
+            username = $16,
+            views = $17,
+            updated_at = $18
         WHERE id = $1
         RETURNING *;
       `;
@@ -112,6 +124,9 @@ export class CustomVideo {
         this.videoSize,
         this.thumbnailPath,
         this.thumbnailFileId,
+        this.s3Key,
+        this.s3ThumbnailKey,
+        this.s3Bucket,
         this.userId,
         this.username,
         this.views,
@@ -126,9 +141,10 @@ export class CustomVideo {
         INSERT INTO custom_videos (
           id, title, description, category, video_path, video_file_id,
           video_filename, video_content_type, video_size, thumbnail_path,
-          thumbnail_file_id, user_id, username, views, created_at, updated_at
+          thumbnail_file_id, s3_key, s3_thumbnail_key, s3_bucket,
+          user_id, username, views, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING *;
       `;
       const values = [
@@ -143,6 +159,9 @@ export class CustomVideo {
         this.videoSize,
         this.thumbnailPath,
         this.thumbnailFileId,
+        this.s3Key,
+        this.s3ThumbnailKey,
+        this.s3Bucket,
         this.userId,
         this.username,
         this.views,

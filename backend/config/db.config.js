@@ -63,6 +63,9 @@ export const connectDB = async () => {
           video_size BIGINT NOT NULL,
           thumbnail_path VARCHAR(500),
           thumbnail_file_id VARCHAR(64),
+          s3_key VARCHAR(500),
+          s3_thumbnail_key VARCHAR(500),
+          s3_bucket VARCHAR(255),
           user_id VARCHAR(64) NOT NULL,
           username VARCHAR(255) NOT NULL,
           views INT DEFAULT 0,
@@ -71,6 +74,9 @@ export const connectDB = async () => {
         );
 
         ALTER TABLE custom_videos ADD COLUMN IF NOT EXISTS views INT DEFAULT 0;
+        ALTER TABLE custom_videos ADD COLUMN IF NOT EXISTS s3_key VARCHAR(500);
+        ALTER TABLE custom_videos ADD COLUMN IF NOT EXISTS s3_thumbnail_key VARCHAR(500);
+        ALTER TABLE custom_videos ADD COLUMN IF NOT EXISTS s3_bucket VARCHAR(255);
         ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255);
         ALTER TABLE users ALTER COLUMN password DROP NOT NULL;
       `);

@@ -41,3 +41,20 @@
 - [x] 10. Converted remote deployment to pure container deployment (no git clone, only docker-compose.yml and .env, self-contained health check).
 - [x] 11. Disabled automatic GitHub Actions workflow triggers on push in `.github/workflows/deploy.yml` (manual `workflow_dispatch` only).
 
+## AWS S3 Bucket Storage Migration (Replacing Docker Volumes)
+- [x] 1. Install AWS S3 SDK packages (`@aws-sdk/client-s3`, `@aws-sdk/lib-storage`) in `backend/`.
+- [x] 2. Create AWS S3 Service (`backend/services/s3.service.js`) for upload, streaming with HTTP 206 Range support, thumbnail retrieval, and deletion.
+- [x] 3. Update Database Schema & Model (`backend/config/db.config.js` and `backend/models/customVideo.model.js`) to support `s3_key`, `s3_thumbnail_key`, and `s3_bucket`.
+- [x] 4. Update Backend Controller & Route (`backend/controllers/customVideo.controller.js` and `backend/routes/customVideo.route.js`) to use S3 storage with graceful disk fallback.
+- [x] 5. Update Environment Configurations (`backend/config/env.config.js`, `.env`, `.env.example`, `jenkins_secretfile.env`, `jenkins_secretfile.env.example`).
+- [x] 6. Update `docker-compose.yml` and `backend/Dockerfile` to remove volume mounts and static disk upload directories.
+- [x] 7. Update `Jenkinsfile` and `.github/workflows/deploy.yml` to remove `docker volume create devops_video_uploads` commands.
+- [x] 8. Verify implementation via unit/smoke tests and document results.
+
+### S3 Storage Migration Review
+- **AWS S3 Integration**: Added `@aws-sdk/client-s3` and `@aws-sdk/lib-storage` (for multipart uploads up to 500MB).
+- **Streaming & Partial Content (HTTP 206)**: Implemented S3 `GetObjectCommand` with `Range` header support in `streamCustomVideo`. Videos stream directly from S3 with browser seeking/scrubbing support and no CORS issues.
+- **Database Schema**: Added idempotent PostgreSQL column migrations (`s3_key`, `s3_thumbnail_key`, `s3_bucket`).
+- **Container Decoupling**: Removed Docker host volume mount (`devops_video_uploads`) from `docker-compose.yml`, `Jenkinsfile`, and GitHub Actions workflow. Backend containers are now completely stateless.
+- **Backwards Compatibility**: Graceful fallback ensures that local development without S3 credentials continues to work seamlessly using local disk staging.
+

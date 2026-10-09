@@ -2,9 +2,17 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import CustomVideo from '../models/customVideo.model.js';
+import {
+  isS3Enabled,
+  uploadFileToS3,
+  getS3ObjectStream,
+  deleteFromS3,
+  getS3BucketName,
+} from '../services/s3.service.js';
 
 /**
- * Uploads a custom video and optional thumbnail to disk volume and saves file path in PostgreSQL database
+ * Uploads a custom video and optional thumbnail to AWS S3 bucket (or local disk fallback)
+ * and saves metadata in PostgreSQL database.
  */
 export const uploadCustomVideo = async (req, res) => {
   const videoFile = req.files?.['video']?.[0];
@@ -16,20 +24,70 @@ export const uploadCustomVideo = async (req, res) => {
 
   const { title, description, category } = req.body;
   if (!title || title.trim() === '') {
-    // Clean up uploaded files if validation fails
+    // Clean up uploaded temp files if validation fails
     if (fs.existsSync(videoFile.path)) fs.unlinkSync(videoFile.path);
     if (thumbnailFile && fs.existsSync(thumbnailFile.path)) fs.unlinkSync(thumbnailFile.path);
     return res.status(400).json({ success: false, message: 'Title is required' });
   }
 
-  try {
-    // Relative paths with forward slashes for cross-platform and Docker portability
-    const videoPath = path.relative(process.cwd(), videoFile.path).replace(/\\/g, '/');
-    const thumbnailPath = thumbnailFile
-      ? path.relative(process.cwd(), thumbnailFile.path).replace(/\\/g, '/')
-      : null;
+  let s3VideoKey = null;
+  let s3ThumbKey = null;
+  let s3Bucket = null;
 
-    // Save video metadata and file locations to PostgreSQL database
+  try {
+    let videoPath = null;
+    let thumbnailPath = null;
+
+    if (isS3Enabled()) {
+      // 1. Primary: Upload directly to AWS S3 Bucket
+      s3Bucket = getS3BucketName();
+      const videoExt = path.extname(videoFile.originalname) || '.mp4';
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      s3VideoKey = `videos/video-${uniqueSuffix}${videoExt}`;
+
+      await uploadFileToS3({
+        filePath: videoFile.path,
+        key: s3VideoKey,
+        contentType: videoFile.mimetype || 'video/mp4',
+        bucketName: s3Bucket,
+      });
+
+      if (thumbnailFile) {
+        const thumbExt = path.extname(thumbnailFile.originalname) || '.jpg';
+        s3ThumbKey = `thumbnails/thumbnail-${uniqueSuffix}${thumbExt}`;
+        await uploadFileToS3({
+          filePath: thumbnailFile.path,
+          key: s3ThumbKey,
+          contentType: thumbnailFile.mimetype || 'image/jpeg',
+          bucketName: s3Bucket,
+        });
+      }
+
+      // Clean up temporary files from staging disk after S3 upload completes
+      if (fs.existsSync(videoFile.path)) fs.unlinkSync(videoFile.path);
+      if (thumbnailFile && fs.existsSync(thumbnailFile.path)) fs.unlinkSync(thumbnailFile.path);
+    } else {
+      // 2. Secondary fallback: Save to local disk directory if S3 is not configured
+      const uploadsDir = path.resolve('uploads');
+      const videosDir = path.join(uploadsDir, 'videos');
+      const thumbsDir = path.join(uploadsDir, 'thumbnails');
+      if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
+      if (!fs.existsSync(thumbsDir)) fs.mkdirSync(thumbsDir, { recursive: true });
+
+      const destVideoPath = path.join(videosDir, path.basename(videoFile.path));
+      fs.copyFileSync(videoFile.path, destVideoPath);
+      if (fs.existsSync(videoFile.path)) fs.unlinkSync(videoFile.path);
+      videoPath = path.relative(process.cwd(), destVideoPath).replace(/\\/g, '/');
+
+      if (thumbnailFile) {
+        const destThumbPath = path.join(thumbsDir, path.basename(thumbnailFile.path));
+        fs.copyFileSync(thumbnailFile.path, destThumbPath);
+        if (fs.existsSync(thumbnailFile.path)) fs.unlinkSync(thumbnailFile.path);
+        thumbnailPath = path.relative(process.cwd(), destThumbPath).replace(/\\/g, '/');
+      }
+    }
+
+    // Save video metadata to PostgreSQL database
     const newVideo = new CustomVideo({
       title: title.trim(),
       description: (description || '').trim(),
@@ -39,8 +97,10 @@ export const uploadCustomVideo = async (req, res) => {
       videoContentType: videoFile.mimetype || 'video/mp4',
       videoSize: videoFile.size,
       thumbnailPath,
-      // Provide a valid ID for thumbnailFileId if thumbnail exists to maintain frontend compatibility
-      thumbnailFileId: thumbnailPath ? crypto.randomBytes(12).toString('hex') : null,
+      s3Key: s3VideoKey,
+      s3ThumbnailKey: s3ThumbKey,
+      s3Bucket: s3Bucket,
+      thumbnailFileId: (s3ThumbKey || thumbnailPath) ? crypto.randomBytes(12).toString('hex') : null,
       userId: req.user._id,
       username: req.user.username,
     });
@@ -49,13 +109,23 @@ export const uploadCustomVideo = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Video uploaded to folder and file location saved in database successfully',
+      message: s3VideoKey
+        ? 'Video uploaded to AWS S3 bucket and saved to database successfully'
+        : 'Video saved locally and in database successfully',
       video: newVideo,
     });
   } catch (error) {
     console.error('Error saving custom video:', error);
 
-    // Rollback: delete disk files if saving to database fails
+    // Rollback: delete S3 objects if database insertion fails
+    if (s3VideoKey) {
+      await deleteFromS3({ key: s3VideoKey, bucketName: s3Bucket }).catch(() => {});
+    }
+    if (s3ThumbKey) {
+      await deleteFromS3({ key: s3ThumbKey, bucketName: s3Bucket }).catch(() => {});
+    }
+
+    // Rollback: delete temp disk files if still present
     if (videoFile && fs.existsSync(videoFile.path)) {
       try {
         fs.unlinkSync(videoFile.path);
@@ -84,7 +154,7 @@ export const getAllCustomVideos = async (req, res) => {
 
     const formattedVideos = videos.map((v) => {
       const obj = typeof v.toObject === 'function' ? v.toObject() : { ...v };
-      if (obj.thumbnailPath && !obj.thumbnailFileId) {
+      if ((obj.thumbnailPath || obj.s3ThumbnailKey) && !obj.thumbnailFileId) {
         obj.thumbnailFileId = obj._id;
       }
       return obj;
@@ -113,7 +183,7 @@ export const getCustomVideoById = async (req, res) => {
     await video.save();
 
     const obj = typeof video.toObject === 'function' ? video.toObject() : { ...video };
-    if (obj.thumbnailPath && !obj.thumbnailFileId) {
+    if ((obj.thumbnailPath || obj.s3ThumbnailKey) && !obj.thumbnailFileId) {
       obj.thumbnailFileId = obj._id;
     }
 
@@ -125,8 +195,7 @@ export const getCustomVideoById = async (req, res) => {
 };
 
 /**
- * Streams video directly from disk folder with HTTP 206 Partial Content (Range requests)
- * Falls back to legacy GridFS if videoPath is absent.
+ * Streams video directly from AWS S3 Bucket or disk with HTTP 206 Partial Content (Range requests)
  */
 export const streamCustomVideo = async (req, res) => {
   try {
@@ -137,7 +206,41 @@ export const streamCustomVideo = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Video not found' });
     }
 
-    // 1. Primary storage: Video file on disk volume
+    // 1. Primary: Stream directly from AWS S3 Bucket with byte-range support
+    if (video.s3Key) {
+      try {
+        const range = req.headers.range;
+        const { stream, contentLength, contentRange, contentType, statusCode } = await getS3ObjectStream({
+          key: video.s3Key,
+          range,
+          bucketName: video.s3Bucket,
+        });
+
+        const headers = {
+          'Content-Type': contentType || video.videoContentType || 'video/mp4',
+          'Accept-Ranges': 'bytes',
+          'Content-Length': contentLength,
+        };
+        if (contentRange) {
+          headers['Content-Range'] = contentRange;
+        }
+
+        res.writeHead(statusCode, headers);
+        stream.on('error', (err) => {
+          console.error('S3 stream error:', err);
+          if (!res.headersSent) res.status(500).end();
+        });
+        return stream.pipe(res);
+      } catch (s3Error) {
+        console.error('Error streaming custom video from S3:', s3Error);
+        if (s3Error.name === 'InvalidRange' || s3Error.$metadata?.httpStatusCode === 416) {
+          return res.status(416).setHeader('Content-Range', `bytes */${video.videoSize}`).end();
+        }
+        return res.status(500).json({ success: false, message: 'Failed to stream video from S3: ' + s3Error.message });
+      }
+    }
+
+    // 2. Secondary fallback: Stream from local disk
     if (video.videoPath) {
       const fullPath = path.resolve(video.videoPath);
       if (!fs.existsSync(fullPath)) {
@@ -149,7 +252,6 @@ export const streamCustomVideo = async (req, res) => {
       const range = req.headers.range;
 
       if (range) {
-        // Parse Range header (e.g. "bytes=0-1048575")
         const parts = range.replace(/bytes=/, '').split('-');
         const start = parseInt(parts[0], 10);
         const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
@@ -160,14 +262,12 @@ export const streamCustomVideo = async (req, res) => {
         }
 
         const chunkSize = end - start + 1;
-        const headers = {
+        res.writeHead(206, {
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': chunkSize,
           'Content-Type': video.videoContentType || 'video/mp4',
-        };
-
-        res.writeHead(206, headers);
+        });
 
         const fileStream = fs.createReadStream(fullPath, { start, end });
         fileStream.on('error', (err) => {
@@ -176,14 +276,11 @@ export const streamCustomVideo = async (req, res) => {
         });
         fileStream.pipe(res);
       } else {
-        // Stream the full file
-        const headers = {
+        res.writeHead(200, {
           'Content-Length': fileSize,
           'Content-Type': video.videoContentType || 'video/mp4',
           'Accept-Ranges': 'bytes',
-        };
-
-        res.writeHead(200, headers);
+        });
 
         const fileStream = fs.createReadStream(fullPath);
         fileStream.on('error', (err) => {
@@ -193,45 +290,6 @@ export const streamCustomVideo = async (req, res) => {
         fileStream.pipe(res);
       }
       return;
-    }
-
-    // 2. Legacy fallback: Stream from MongoDB GridFS if videoFileId exists and GridFS is available
-    if (video.videoFileId) {
-      try {
-        const videoBucket = getVideoBucket();
-        if (videoBucket) {
-          const files = await videoBucket.find({ _id: video.videoFileId }).toArray();
-          if (files && files.length > 0) {
-            const file = files[0];
-            const fileSize = file.length;
-            const range = req.headers.range;
-            if (range) {
-              const parts = range.replace(/bytes=/, '').split('-');
-              const start = parseInt(parts[0], 10);
-              const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-              const chunksize = end - start + 1;
-              res.writeHead(206, {
-                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                'Accept-Ranges': 'bytes',
-                'Content-Length': chunksize,
-                'Content-Type': file.contentType || 'video/mp4',
-              });
-              const downloadStream = videoBucket.openDownloadStream(file._id, { start, end: end + 1 });
-              return downloadStream.pipe(res);
-            } else {
-              res.writeHead(200, {
-                'Content-Length': fileSize,
-                'Content-Type': file.contentType || 'video/mp4',
-              });
-              const downloadStream = videoBucket.openDownloadStream(file._id);
-              return downloadStream.pipe(res);
-            }
-          }
-        }
-      } catch (e) {
-        // ignore legacy error
-      }
-      return res.status(404).json({ success: false, message: 'Video data not found on disk' });
     }
 
     return res.status(404).json({ success: false, message: 'No video source found for this entry' });
@@ -244,7 +302,7 @@ export const streamCustomVideo = async (req, res) => {
 };
 
 /**
- * Serves thumbnail image directly from disk volume or falls back to GridFS
+ * Serves thumbnail image directly from AWS S3 Bucket or local disk
  */
 export const getCustomVideoThumbnail = async (req, res) => {
   try {
@@ -255,33 +313,34 @@ export const getCustomVideoThumbnail = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Custom video not found' });
     }
 
-    // 1. Primary: Serve directly from disk volume
+    // 1. Primary: Stream directly from AWS S3 Bucket
+    if (video.s3ThumbnailKey) {
+      try {
+        const { stream, contentLength, contentType } = await getS3ObjectStream({
+          key: video.s3ThumbnailKey,
+          bucketName: video.s3Bucket,
+        });
+
+        res.setHeader('Content-Type', contentType || 'image/jpeg');
+        if (contentLength) res.setHeader('Content-Length', contentLength);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+
+        stream.on('error', (err) => {
+          console.error('S3 thumbnail stream error:', err);
+          if (!res.headersSent) res.status(500).end();
+        });
+        return stream.pipe(res);
+      } catch (s3Error) {
+        console.error('Error retrieving thumbnail from S3:', s3Error);
+        return res.status(404).json({ success: false, message: 'Thumbnail not found in S3' });
+      }
+    }
+
+    // 2. Secondary fallback: Serve from local disk
     if (video.thumbnailPath) {
       const fullPath = path.resolve(video.thumbnailPath);
       if (fs.existsSync(fullPath)) {
         return res.sendFile(fullPath);
-      }
-    }
-
-    // 2. Legacy fallback: Stream from MongoDB GridFS
-    if (video.thumbnailFileId) {
-      try {
-        const thumbnailBucket = getThumbnailBucket();
-        if (thumbnailBucket) {
-          const files = await thumbnailBucket.find({ _id: video.thumbnailFileId }).toArray();
-
-          if (files && files.length > 0) {
-            const file = files[0];
-            res.setHeader('Content-Type', file.contentType || 'image/jpeg');
-            res.setHeader('Content-Length', file.length);
-            res.setHeader('Cache-Control', 'public, max-age=86400');
-
-            const downloadStream = thumbnailBucket.openDownloadStream(file._id);
-            return downloadStream.pipe(res);
-          }
-        }
-      } catch (e) {
-        // ignore legacy error
       }
     }
 
@@ -293,7 +352,7 @@ export const getCustomVideoThumbnail = async (req, res) => {
 };
 
 /**
- * Deletes a custom video: removes files from disk volume and deletes document from MongoDB
+ * Deletes a custom video: removes files from AWS S3 Bucket (or disk) and deletes record from PostgreSQL
  */
 export const deleteCustomVideo = async (req, res) => {
   try {
@@ -309,7 +368,15 @@ export const deleteCustomVideo = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Unauthorized to delete this video' });
     }
 
-    // 1. Remove physical files from disk volume
+    // 1. Delete from AWS S3 Bucket
+    if (video.s3Key) {
+      await deleteFromS3({ key: video.s3Key, bucketName: video.s3Bucket });
+    }
+    if (video.s3ThumbnailKey) {
+      await deleteFromS3({ key: video.s3ThumbnailKey, bucketName: video.s3Bucket });
+    }
+
+    // 2. Delete physical files from disk (if local fallback was used)
     if (video.videoPath) {
       const fullVideoPath = path.resolve(video.videoPath);
       if (fs.existsSync(fullVideoPath)) {
@@ -332,26 +399,10 @@ export const deleteCustomVideo = async (req, res) => {
       }
     }
 
-    // 2. Legacy cleanup: Remove from GridFS if legacy IDs exist
-    if (video.videoFileId) {
-      try {
-        await deleteFileFromGridFS(getVideoBucket(), video.videoFileId);
-      } catch (e) {
-        // ignore
-      }
-    }
-    if (video.thumbnailFileId) {
-      try {
-        await deleteFileFromGridFS(getThumbnailBucket(), video.thumbnailFileId);
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    // 3. Delete metadata document from MongoDB
+    // 3. Delete metadata document from PostgreSQL
     await CustomVideo.findByIdAndDelete(id);
 
-    res.status(200).json({ success: true, message: 'Video deleted from disk and database successfully' });
+    res.status(200).json({ success: true, message: 'Video deleted successfully' });
   } catch (error) {
     console.error('Error deleting custom video:', error);
     res.status(500).json({ success: false, message: 'Failed to delete video: ' + error.message });

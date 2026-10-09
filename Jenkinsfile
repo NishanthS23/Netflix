@@ -270,7 +270,6 @@ fi
 \$DOCKER_COMPOSE --env-file .env pull
 
 echo "=== [Deploy] 5. Starting Application Containers ==="
-docker volume create devops_video_uploads 2>/dev/null || true
 docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
 \$DOCKER_COMPOSE --env-file .env up -d --remove-orphans
 
@@ -355,7 +354,6 @@ fi
 \$DOCKER_COMPOSE --env-file .env pull
 
 echo "=== [Deploy] 5. Starting Application Containers ==="
-docker volume create devops_video_uploads 2>/dev/null || true
 docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
 \$DOCKER_COMPOSE --env-file .env up -d --remove-orphans
 
@@ -422,7 +420,6 @@ echo "=== [Deploy] Deployment Completed Successfully! ==="
                                     docker compose --env-file .env pull
 
                                     echo "=== [Local] 3. Restarting Application Containers ==="
-                                    docker volume create devops_video_uploads 2>/dev/null || true
                                     docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
                                     docker compose --env-file .env up -d --remove-orphans
 
@@ -442,13 +439,11 @@ echo "=== [Deploy] Deployment Completed Successfully! ==="
                                     if (Get-Command docker-compose -ErrorAction SilentlyContinue) {
                                         docker-compose --env-file .env pull
                                         echo "=== [Local] 3. Restarting Application Containers ==="
-                                        docker volume create devops_video_uploads 2>\$null
                                         docker rm -f netflix-frontend netflix-backend netflix-db 2>\$null
                                         docker-compose --env-file .env up -d --remove-orphans
                                     } else {
                                         docker compose --env-file .env pull
                                         echo "=== [Local] 3. Restarting Application Containers ==="
-                                        docker volume create devops_video_uploads 2>\$null
                                         docker rm -f netflix-frontend netflix-backend netflix-db 2>\$null
                                         docker compose --env-file .env up -d --remove-orphans
                                     }

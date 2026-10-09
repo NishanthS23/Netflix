@@ -68,4 +68,12 @@ export const ENV_VARS = {
   DB_PASSWORD: sanitizeEnvString(process.env.DB_PASSWORD),
   DB_NAME: sanitizeEnvString(process.env.DB_NAME),
   DB_SSL: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production',
+
+  // AWS S3 Storage configuration
+  AWS_REGION: sanitizeEnvString(process.env.AWS_REGION) || 'us-east-1',
+  AWS_ACCESS_KEY_ID: sanitizeEnvString(process.env.AWS_ACCESS_KEY_ID),
+  AWS_SECRET_ACCESS_KEY: sanitizeEnvString(process.env.AWS_SECRET_ACCESS_KEY),
+  AWS_S3_BUCKET_NAME: sanitizeEnvString(process.env.AWS_S3_BUCKET_NAME) || sanitizeEnvString(process.env.S3_BUCKET_NAME),
+  S3_BUCKET_NAME: sanitizeEnvString(process.env.S3_BUCKET_NAME) || sanitizeEnvString(process.env.AWS_S3_BUCKET_NAME),
+  AWS_S3_ENDPOINT: sanitizeEnvString(process.env.AWS_S3_ENDPOINT),
 };

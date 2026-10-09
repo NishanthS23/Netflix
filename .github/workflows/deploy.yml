@@ -157,7 +157,6 @@ jobs:
             docker compose --env-file .env pull
 
             echo "=== 5. Starting Application with Docker Compose ==="
-            docker volume create devops_video_uploads 2>/dev/null || true
             docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
             docker compose --env-file .env up -d --remove-orphans
 
