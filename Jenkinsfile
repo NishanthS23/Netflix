@@ -11,9 +11,9 @@ pipeline {
     parameters {
         choice(name: 'DEPLOY_MODE', choices: ['remote-ssh', 'local-agent'], description: 'Deployment Target: remote-ssh (Deploy to Target Server via SSH) or local-agent (Deploy on local Jenkins host)')
         string(name: 'TARGET_HOST', defaultValue: '192.168.1.46', description: 'Target Server IP or Hostname (Default: 192.168.1.46)')
-        string(name: 'TARGET_USER', defaultValue: 'demo', description: 'SSH Username for target server (Default: demo)')
+        string(name: 'TARGET_USER', defaultValue: 'cubeai', description: 'SSH Username for target server (Default: cubeai)')
         string(name: 'EC2_HOST', defaultValue: '192.168.1.46', description: 'Target Server IP (Legacy EC2_HOST alias)')
-        string(name: 'EC2_USER', defaultValue: 'demo', description: 'Target Server SSH User (Legacy EC2_USER alias)')
+        string(name: 'EC2_USER', defaultValue: 'cubeai', description: 'Target Server SSH User (Legacy EC2_USER alias)')
         string(name: 'DOCKERHUB_USERNAME', defaultValue: 'nishanthsaravanan503', description: 'Docker Hub Username / Organization')
         string(name: 'GOOGLE_CLIENT_ID', defaultValue: '315922735623-r9kc8d4jaau51e52up31vgg2e2ehq5g4.apps.googleusercontent.com', description: 'Google Client ID build-arg for Frontend SPA')
     }
@@ -203,7 +203,7 @@ pipeline {
                             echo "Target deployment host: ${targetHost}"
 
                             def executeRemoteDeploy = { String sshKeyPath, String sshUserFromCreds ->
-                                def targetUser = 'demo'
+                                def targetUser = 'cubeai'
                                 if (params.TARGET_USER && params.TARGET_USER != 'ubuntu') {
                                     targetUser = params.TARGET_USER.trim()
                                 } else if (sshUserFromCreds) {
