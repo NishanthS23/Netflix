@@ -9,9 +9,11 @@ pipeline {
     }
 
     parameters {
-        choice(name: 'DEPLOY_MODE', choices: ['remote-ssh', 'local-agent'], description: 'Deployment Target: remote-ssh (Deploy to AWS EC2 via SSH) or local-agent (Jenkins agent running on EC2)')
-        string(name: 'EC2_HOST', defaultValue: '18.221.229.239', description: 'AWS EC2 Public IP or Hostname (Required if DEPLOY_MODE is remote-ssh)')
-        string(name: 'EC2_USER', defaultValue: 'ubuntu', description: 'SSH Username for EC2 instance (Default: ubuntu)')
+        choice(name: 'DEPLOY_MODE', choices: ['remote-ssh', 'local-agent'], description: 'Deployment Target: remote-ssh (Deploy to Target Server via SSH) or local-agent (Deploy on local Jenkins host)')
+        string(name: 'TARGET_HOST', defaultValue: '192.168.1.46', description: 'Target Server IP or Hostname (Default: 192.168.1.46)')
+        string(name: 'TARGET_USER', defaultValue: 'demo', description: 'SSH Username for target server (Default: demo)')
+        string(name: 'EC2_HOST', defaultValue: '192.168.1.46', description: 'Target Server IP (Legacy EC2_HOST alias)')
+        string(name: 'EC2_USER', defaultValue: 'demo', description: 'Target Server SSH User (Legacy EC2_USER alias)')
         string(name: 'DOCKERHUB_USERNAME', defaultValue: 'nishanthsaravanan503', description: 'Docker Hub Username / Organization')
         string(name: 'GOOGLE_CLIENT_ID', defaultValue: '315922735623-r9kc8d4jaau51e52up31vgg2e2ehq5g4.apps.googleusercontent.com', description: 'Google Client ID build-arg for Frontend SPA')
     }
@@ -162,7 +164,7 @@ pipeline {
             }
         }
 
-        stage('Deploy to EC2') {
+        stage('Deploy to Target Server') {
             steps {
                 script {
                     echo "=== 6. Deploying Application to Production ==="
@@ -190,58 +192,84 @@ pipeline {
                         }
 
                         if (params.DEPLOY_MODE == 'remote-ssh') {
-                            if (!params.EC2_HOST) {
-                                error("EC2_HOST parameter is required when DEPLOY_MODE is 'remote-ssh'")
+                            // Resolve target host (default to 192.168.1.46)
+                            def targetHost = '192.168.1.46'
+                            if (params.TARGET_HOST && params.TARGET_HOST != '18.221.229.239') {
+                                targetHost = params.TARGET_HOST.trim()
+                            } else if (params.EC2_HOST && params.EC2_HOST != '18.221.229.239') {
+                                targetHost = params.EC2_HOST.trim()
                             }
 
-                            withCredentials([file(credentialsId: env.SSH_KEY_ID, variable: 'SSH_KEY_FILE')]) {
+                            echo "Target deployment host: ${targetHost}"
+
+                            def executeRemoteDeploy = { String sshKeyPath, String sshUserFromCreds ->
+                                def targetUser = 'demo'
+                                if (params.TARGET_USER && params.TARGET_USER != 'ubuntu') {
+                                    targetUser = params.TARGET_USER.trim()
+                                } else if (sshUserFromCreds) {
+                                    targetUser = sshUserFromCreds.trim()
+                                } else if (params.EC2_USER && params.EC2_USER != 'ubuntu') {
+                                    targetUser = params.EC2_USER.trim()
+                                }
+
+                                echo "Deploying via SSH to ${targetUser}@${targetHost} using key: ${sshKeyPath}..."
+
                                 if (isUnix()) {
                                     sh """
-                                        chmod 400 "${SSH_KEY_FILE}"
+                                        chmod 400 "${sshKeyPath}"
 
-                                        ssh -i "${SSH_KEY_FILE}" -o StrictHostKeyChecking=no -o ConnectTimeout=60 "${params.EC2_USER}@${params.EC2_HOST}" "bash -s" << 'REMOTE_DEPLOY_EOF'
+                                        ssh -i "${sshKeyPath}" -o StrictHostKeyChecking=no -o ConnectTimeout=60 "${targetUser}@${targetHost}" "bash -s" << 'REMOTE_DEPLOY_EOF'
 set -e
 
-echo "=== [EC2] 1. Checking Project Directory ==="
+echo "=== [Deploy] 1. Checking Project Directory ==="
 PROJECT_DIR="\$HOME/${PROJECT_DIR_NAME}"
 if [ ! -d "\$PROJECT_DIR" ]; then
     git clone "${GIT_REPO_URL}" "\$PROJECT_DIR"
 fi
 cd "\$PROJECT_DIR"
 
-echo "=== [EC2] 2. Pulling Latest Repository Configuration ==="
+echo "=== [Deploy] 2. Pulling Latest Repository Configuration ==="
 git fetch --all
 git reset --hard origin/main
 
-echo "=== [EC2] 3. Writing .env from Jenkins Secret File ==="
+echo "=== [Deploy] 3. Writing .env from Jenkins Secret File ==="
 echo "${envB64}" | base64 -d > .env
 chmod 600 .env
 echo "Production .env created successfully"
 
-echo "=== [EC2] 4. Authenticating with Docker Hub on EC2 ==="
+echo "=== [Deploy] 4. Authenticating with Docker Hub on Target Server ==="
 echo "${DH_LOGIN_TOKEN.trim()}" | docker login -u "${DH_LOGIN_USER.trim()}" --password-stdin
 
-echo "=== [EC2] 5. Pulling Pre-built Docker Images ==="
-docker compose --env-file .env pull
+echo "=== [Deploy] 5. Pulling Pre-built Docker Images ==="
+if docker compose version >/dev/null 2>&1; then
+    DOCKER_COMPOSE="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    DOCKER_COMPOSE="docker-compose"
+else
+    echo "ERROR: Neither 'docker compose' nor 'docker-compose' found on target server!"
+    exit 1
+fi
 
-echo "=== [EC2] 6. Starting Application Containers ==="
+\$DOCKER_COMPOSE --env-file .env pull
+
+echo "=== [Deploy] 6. Starting Application Containers ==="
 docker volume create devops_video_uploads 2>/dev/null || true
 docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
-docker compose --env-file .env up -d --remove-orphans
+\$DOCKER_COMPOSE --env-file .env up -d --remove-orphans
 
-echo "=== [EC2] 7. Running Production Health Check ==="
+echo "=== [Deploy] 7. Running Production Health Check ==="
 chmod +x scripts/healthcheck.sh
 bash scripts/healthcheck.sh
 
-echo "=== [EC2] 8. Cleaning up dangling Docker images ==="
+echo "=== [Deploy] 8. Cleaning up dangling Docker images ==="
 docker image prune -af || true
 
-echo "=== [EC2] Deployment Completed Successfully! ==="
+echo "=== [Deploy] Deployment Completed Successfully! ==="
 REMOTE_DEPLOY_EOF
                                     """
                                 } else {
-                                    // Windows Agent Deploying to EC2 via SSH
-                                    def winKeyPath = SSH_KEY_FILE.replace('/', '\\')
+                                    // Windows Agent Deploying to Server via SSH
+                                    def winKeyPath = sshKeyPath.replace('/', '\\')
                                     powershell """
                                         # Set strict permissions on private key for Windows OpenSSH (chmod 400 equivalent)
                                         \$u = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -256,45 +284,71 @@ REMOTE_DEPLOY_EOF
                                         \$deployScript = @'
 set -e
 
-echo "=== [EC2] 1. Checking Project Directory ==="
+echo "=== [Deploy] 1. Checking Project Directory ==="
 PROJECT_DIR="\$HOME/${PROJECT_DIR_NAME}"
 if [ ! -d "\$PROJECT_DIR" ]; then
     git clone "${GIT_REPO_URL}" "\$PROJECT_DIR"
 fi
 cd "\$PROJECT_DIR"
 
-echo "=== [EC2] 2. Pulling Latest Repository Configuration ==="
+echo "=== [Deploy] 2. Pulling Latest Repository Configuration ==="
 git fetch --all
 git reset --hard origin/main
 
-echo "=== [EC2] 3. Writing .env from Jenkins Secret File ==="
+echo "=== [Deploy] 3. Writing .env from Jenkins Secret File ==="
 echo "${envB64}" | base64 -d > .env
 chmod 600 .env
 echo "Production .env created successfully"
 
-echo "=== [EC2] 4. Authenticating with Docker Hub on EC2 ==="
+echo "=== [Deploy] 4. Authenticating with Docker Hub on Target Server ==="
 echo "${DH_LOGIN_TOKEN.trim()}" | docker login -u "${DH_LOGIN_USER.trim()}" --password-stdin
 
-echo "=== [EC2] 5. Pulling Pre-built Docker Images ==="
-docker compose --env-file .env pull
+echo "=== [Deploy] 5. Pulling Pre-built Docker Images ==="
+if docker compose version >/dev/null 2>&1; then
+    DOCKER_COMPOSE="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    DOCKER_COMPOSE="docker-compose"
+else
+    echo "ERROR: Neither 'docker compose' nor 'docker-compose' found on target server!"
+    exit 1
+fi
 
-echo "=== [EC2] 6. Starting Application Containers ==="
+\$DOCKER_COMPOSE --env-file .env pull
+
+echo "=== [Deploy] 6. Starting Application Containers ==="
 docker volume create devops_video_uploads 2>/dev/null || true
 docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
-docker compose --env-file .env up -d --remove-orphans
+\$DOCKER_COMPOSE --env-file .env up -d --remove-orphans
 
-echo "=== [EC2] 7. Running Production Health Check ==="
+echo "=== [Deploy] 7. Running Production Health Check ==="
 chmod +x scripts/healthcheck.sh
 bash scripts/healthcheck.sh
 
-echo "=== [EC2] 8. Cleaning up dangling Docker images ==="
+echo "=== [Deploy] 8. Cleaning up dangling Docker images ==="
 docker image prune -af || true
 
-echo "=== [EC2] Deployment Completed Successfully! ==="
+echo "=== [Deploy] Deployment Completed Successfully! ==="
 '@
 
-                                        \$deployScript | ssh -i "${winKeyPath}" -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o LogLevel=ERROR "${params.EC2_USER}@${params.EC2_HOST}" "bash -s"
+                                        \$deployScript | ssh -i "${winKeyPath}" -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o LogLevel=ERROR "${targetUser}@${targetHost}" "bash -s"
                                     """
+                                }
+                            }
+
+                            // Support both 'SSH Username with private key' and 'Secret file' credential kinds
+                            try {
+                                echo "Attempting SSH credential binding using 'sshUserPrivateKey'..."
+                                withCredentials([sshUserPrivateKey(credentialsId: env.SSH_KEY_ID, keyFileVariable: 'SSH_KEY_FILE', usernameVariable: 'SSH_KEY_USER')]) {
+                                    executeRemoteDeploy(SSH_KEY_FILE, SSH_KEY_USER)
+                                }
+                            } catch (Throwable credErr) {
+                                if (credErr.message?.contains('FileCredentials') || credErr.message?.contains('SSH Username with private key') || credErr.message?.contains('where') || credErr.message?.contains('plaincredentials')) {
+                                    echo "Falling back to 'file' credential binding for ${env.SSH_KEY_ID}..."
+                                    withCredentials([file(credentialsId: env.SSH_KEY_ID, variable: 'SSH_KEY_FILE')]) {
+                                        executeRemoteDeploy(SSH_KEY_FILE, null)
+                                    }
+                                } else {
+                                    throw credErr
                                 }
                             }
                         } else {

@@ -33,4 +33,6 @@
   - Method A: Docker Compose Deployment (Recommended containerized production-parity setup)
   - Method B: Direct / Bare-Metal Node.js & Vite Deployment (for dev or environments without Docker)
 - [x] 4. Provide troubleshooting steps (external volume missing, port 80 conflicts, database connectivity, and environment variables).
+- [x] 5. Resolve Jenkins SSH credential type mismatch (`SSH Username with private key` vs `FileCredentials`).
+- [x] 6. Configure Jenkinsfile default target host to `192.168.1.46` and target user to `demo`.
 
