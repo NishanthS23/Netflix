@@ -34,5 +34,10 @@
   - Method B: Direct / Bare-Metal Node.js & Vite Deployment (for dev or environments without Docker)
 - [x] 4. Provide troubleshooting steps (external volume missing, port 80 conflicts, database connectivity, and environment variables).
 - [x] 5. Resolve Jenkins SSH credential type mismatch (`SSH Username with private key` vs `FileCredentials`).
-- [x] 6. Configure Jenkinsfile default target host to `192.168.1.46` and target user to `demo`.
+- [x] 6. Configure Jenkinsfile default target host to `192.168.1.46` and target user to `cubeai`.
+- [x] 7. Installed Docker Compose v2.29.7 on target local server (`192.168.1.46`).
+- [x] 8. Resolved PowerShell CRLF injection (`set: command not found`) via Base64 bash piping in Jenkinsfile.
+- [x] 9. Added automated Docker Compose CLI fallback detection/installation in Jenkinsfile.
+- [x] 10. Converted remote deployment to pure container deployment (no git clone, only docker-compose.yml and .env, self-contained health check).
+- [x] 11. Disabled automatic GitHub Actions workflow triggers on push in `.github/workflows/deploy.yml` (manual `workflow_dispatch` only).
 

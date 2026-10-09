@@ -22,4 +22,9 @@
 - **Docker Compose `.env` Variable Quoting**: Complex strings containing angle brackets or spaces like `EMAIL_FROM="Netflix Clone <user@gmail.com>"` must be wrapped entirely in quotes. Partial quoting like `"Name" <user@email>` causes Compose to fail parsing with `unexpected character "<" in variable name`.
 - **Vite Client-Side Build Arguments in Docker**: Variables prefixed with `VITE_*` are baked into JavaScript bundles at build time (compile-time) rather than container runtime. When dockerizing Vite applications, declare `ARG VITE_*` and `ENV VITE_*=$VITE_*` before `RUN npm run build`, and pass them via `build-args` in Docker Compose and CI/CD pipelines.
 
+## Cross-Platform SSH & Remote CI/CD Execution
+- **PowerShell to Remote Bash CRLF Injection**: Piping multiline strings directly from Windows PowerShell into `ssh "bash -s"` (`$script | ssh ...`) sends `\r\n` carriage returns. Linux Bash parses `\r` as part of the command token, causing errors like `bash: line 1: set: command not found`. **Fix**: Always strip `\r\n` and encode the remote payload as Base64 in PowerShell, then decode on the remote host via `ssh "echo '<b64>' | base64 -d | bash"`.
+- **Non-Interactive OpenSSH Hangs in CI/CD**: When publickey authentication fails or an unrecognized host key appears, OpenSSH prompts interactively for a password or confirmation. In a headless CI runner (Jenkins), this hangs execution indefinitely. **Fix**: Always pass `-T -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=30` so authentication failures fail fast with diagnostic output instead of hanging.
+- **Docker Compose Plugin on Minimal Linux Installations**: Ubuntu minimal/cloud images may ship with `docker.io` without `docker-compose-plugin`. In automated deployment scripts, include a user-space fallback (`mkdir -p ~/.docker/cli-plugins && curl -sSL ... -o ~/.docker/cli-plugins/docker-compose && chmod +x ...`) so deployments do not halt for lack of sudo permissions.
+
 
