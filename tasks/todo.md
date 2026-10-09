@@ -25,3 +25,12 @@
 - **Deployment Flexibility**:
   - Supports both `remote-ssh` (Jenkins server deploys to EC2 via SSH key) and `local-agent` (Jenkins running directly on EC2 host).
   - Uses `scripts/healthcheck.sh` on EC2 to test frontend HTTP 80, backend API via Nginx, AWS RDS PostgreSQL connectivity, and port 8000 isolation.
+
+## Local Server Deployment Guide
+- [x] 1. Inspect repository architecture, Docker Compose services, networking, storage volumes, and database connection.
+- [x] 2. Identify local prerequisites (Docker Engine / Docker Desktop, Docker Compose, Port 80 availability, external volume requirement `devops_video_uploads`).
+- [x] 3. Document step-by-step local deployment instructions:
+  - Method A: Docker Compose Deployment (Recommended containerized production-parity setup)
+  - Method B: Direct / Bare-Metal Node.js & Vite Deployment (for dev or environments without Docker)
+- [x] 4. Provide troubleshooting steps (external volume missing, port 80 conflicts, database connectivity, and environment variables).
+
