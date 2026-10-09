@@ -178,15 +178,24 @@ pipeline {
                         )
                     ]) {
                         def envB64 = ''
+                        def composeB64 = ''
                         if (isUnix()) {
                             envB64 = sh(
                                 script: "base64 < '${SECRET_ENV_FILE}' | tr -d '\\r\\n'",
+                                returnStdout: true
+                            ).trim()
+                            composeB64 = sh(
+                                script: "base64 < docker-compose.yml | tr -d '\\r\\n'",
                                 returnStdout: true
                             ).trim()
                         } else {
                             def cleanPath = SECRET_ENV_FILE.replace('\\', '/')
                             envB64 = powershell(
                                 script: "[Convert]::ToBase64String([System.IO.File]::ReadAllBytes('${cleanPath}'))",
+                                returnStdout: true
+                            ).trim()
+                            composeB64 = powershell(
+                                script: "[Convert]::ToBase64String([System.IO.File]::ReadAllBytes('docker-compose.yml'))",
                                 returnStdout: true
                             ).trim()
                         }
@@ -218,29 +227,37 @@ pipeline {
                                     sh """
                                         chmod 400 "${sshKeyPath}"
 
-                                        ssh -i "${sshKeyPath}" -o StrictHostKeyChecking=no -o ConnectTimeout=60 "${targetUser}@${targetHost}" "bash -s" << 'REMOTE_DEPLOY_EOF'
+                                        ssh -i "${sshKeyPath}" -T -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=30 "${targetUser}@${targetHost}" "bash -s" << 'REMOTE_DEPLOY_EOF'
 set -e
 
-echo "=== [Deploy] 1. Checking Project Directory ==="
-PROJECT_DIR="\$HOME/${PROJECT_DIR_NAME}"
-if [ ! -d "\$PROJECT_DIR" ]; then
-    git clone "${GIT_REPO_URL}" "\$PROJECT_DIR"
+echo "=== [Deploy] 1. Setting up Application Directory ==="
+APP_DIR="\$HOME/netflix"
+mkdir -p "\$APP_DIR"
+cd "\$APP_DIR"
+
+# Clean up legacy git clone folder if present
+if [ -d "\$HOME/${PROJECT_DIR_NAME}/.git" ]; then
+    echo "Cleaning up old git repository folder..."
+    rm -rf "\$HOME/${PROJECT_DIR_NAME}" 2>/dev/null || true
 fi
-cd "\$PROJECT_DIR"
 
-echo "=== [Deploy] 2. Pulling Latest Repository Configuration ==="
-git fetch --all
-git reset --hard origin/main
-
-echo "=== [Deploy] 3. Writing .env from Jenkins Secret File ==="
+echo "=== [Deploy] 2. Writing docker-compose.yml and .env ==="
+echo "${composeB64}" | base64 -d > docker-compose.yml
 echo "${envB64}" | base64 -d > .env
 chmod 600 .env
-echo "Production .env created successfully"
+echo "Configuration files deployed successfully (no git repository required)"
 
-echo "=== [Deploy] 4. Authenticating with Docker Hub on Target Server ==="
+echo "=== [Deploy] 3. Authenticating with Docker Hub on Target Server ==="
 echo "${DH_LOGIN_TOKEN.trim()}" | docker login -u "${DH_LOGIN_USER.trim()}" --password-stdin
 
-echo "=== [Deploy] 5. Pulling Pre-built Docker Images ==="
+echo "=== [Deploy] 4. Pulling Pre-built Docker Images from Docker Hub ==="
+if ! docker compose version >/dev/null 2>&1 && ! command -v docker-compose >/dev/null 2>&1; then
+    echo "Installing Docker Compose CLI plugin in ~/.docker/cli-plugins..."
+    mkdir -p \$HOME/.docker/cli-plugins
+    curl -sSL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 -o \$HOME/.docker/cli-plugins/docker-compose 2>/dev/null || true
+    chmod +x \$HOME/.docker/cli-plugins/docker-compose 2>/dev/null || true
+fi
+
 if docker compose version >/dev/null 2>&1; then
     DOCKER_COMPOSE="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
@@ -252,16 +269,34 @@ fi
 
 \$DOCKER_COMPOSE --env-file .env pull
 
-echo "=== [Deploy] 6. Starting Application Containers ==="
+echo "=== [Deploy] 5. Starting Application Containers ==="
 docker volume create devops_video_uploads 2>/dev/null || true
 docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
 \$DOCKER_COMPOSE --env-file .env up -d --remove-orphans
 
-echo "=== [Deploy] 7. Running Production Health Check ==="
-chmod +x scripts/healthcheck.sh
-bash scripts/healthcheck.sh
+echo "=== [Deploy] 6. Verifying Production Health Endpoint ==="
+sleep 5
+HEALTH_OK=0
+for i in \$(seq 1 6); do
+    HTTP_CODE=\$(curl -s -o /dev/null -w "%{http_code}" http://localhost:80/api/health || echo "000")
+    if [ "\$HTTP_CODE" = "200" ]; then
+        echo "✅ Health check passed via Nginx (HTTP 200 on /api/health)"
+        HEALTH_OK=1
+        break
+    else
+        echo "⏳ Attempt \$i/6: /api/health returned HTTP \$HTTP_CODE, waiting 5s..."
+        sleep 5
+    fi
+done
 
-echo "=== [Deploy] 8. Cleaning up dangling Docker images ==="
+if [ "\$HEALTH_OK" -ne 1 ]; then
+    echo "❌ Health check failed! Recent logs:"
+    docker logs netflix-backend --tail 30 2>&1 || true
+    docker logs netflix-frontend --tail 30 2>&1 || true
+    exit 1
+fi
+
+echo "=== [Deploy] 7. Cleaning up dangling Docker images ==="
 docker image prune -af || true
 
 echo "=== [Deploy] Deployment Completed Successfully! ==="
@@ -275,35 +310,39 @@ REMOTE_DEPLOY_EOF
                                         \$u = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
                                         icacls.exe "${winKeyPath}" /reset | Out-Null
                                         icacls.exe "${winKeyPath}" /inheritance:r | Out-Null
-                                        icacls.exe "${winKeyPath}" /grant:r "*S-1-5-32-544:R" | Out-Null
-                                        icacls.exe "${winKeyPath}" /grant:r "*S-1-5-18:R" | Out-Null
-                                        icacls.exe "${winKeyPath}" /grant:r "\${u}:R" | Out-Null
-                                        icacls.exe "${winKeyPath}" /remove "BUILTIN\\Users" | Out-Null
-                                        icacls.exe "${winKeyPath}" /remove "Authenticated Users" | Out-Null
+                                        icacls.exe "${winKeyPath}" /grant:r "\${u}:(R)" | Out-Null
 
                                         \$deployScript = @'
 set -e
 
-echo "=== [Deploy] 1. Checking Project Directory ==="
-PROJECT_DIR="\$HOME/${PROJECT_DIR_NAME}"
-if [ ! -d "\$PROJECT_DIR" ]; then
-    git clone "${GIT_REPO_URL}" "\$PROJECT_DIR"
+echo "=== [Deploy] 1. Setting up Application Directory ==="
+APP_DIR="\$HOME/netflix"
+mkdir -p "\$APP_DIR"
+cd "\$APP_DIR"
+
+# Clean up legacy git clone folder if present
+if [ -d "\$HOME/${PROJECT_DIR_NAME}/.git" ]; then
+    echo "Cleaning up old git repository folder..."
+    rm -rf "\$HOME/${PROJECT_DIR_NAME}" 2>/dev/null || true
 fi
-cd "\$PROJECT_DIR"
 
-echo "=== [Deploy] 2. Pulling Latest Repository Configuration ==="
-git fetch --all
-git reset --hard origin/main
-
-echo "=== [Deploy] 3. Writing .env from Jenkins Secret File ==="
+echo "=== [Deploy] 2. Writing docker-compose.yml and .env ==="
+echo "${composeB64}" | base64 -d > docker-compose.yml
 echo "${envB64}" | base64 -d > .env
 chmod 600 .env
-echo "Production .env created successfully"
+echo "Configuration files deployed successfully (no git repository required)"
 
-echo "=== [Deploy] 4. Authenticating with Docker Hub on Target Server ==="
+echo "=== [Deploy] 3. Authenticating with Docker Hub on Target Server ==="
 echo "${DH_LOGIN_TOKEN.trim()}" | docker login -u "${DH_LOGIN_USER.trim()}" --password-stdin
 
-echo "=== [Deploy] 5. Pulling Pre-built Docker Images ==="
+echo "=== [Deploy] 4. Pulling Pre-built Docker Images from Docker Hub ==="
+if ! docker compose version >/dev/null 2>&1 && ! command -v docker-compose >/dev/null 2>&1; then
+    echo "Installing Docker Compose CLI plugin in ~/.docker/cli-plugins..."
+    mkdir -p \$HOME/.docker/cli-plugins
+    curl -sSL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 -o \$HOME/.docker/cli-plugins/docker-compose 2>/dev/null || true
+    chmod +x \$HOME/.docker/cli-plugins/docker-compose 2>/dev/null || true
+fi
+
 if docker compose version >/dev/null 2>&1; then
     DOCKER_COMPOSE="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
@@ -315,22 +354,41 @@ fi
 
 \$DOCKER_COMPOSE --env-file .env pull
 
-echo "=== [Deploy] 6. Starting Application Containers ==="
+echo "=== [Deploy] 5. Starting Application Containers ==="
 docker volume create devops_video_uploads 2>/dev/null || true
 docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
 \$DOCKER_COMPOSE --env-file .env up -d --remove-orphans
 
-echo "=== [Deploy] 7. Running Production Health Check ==="
-chmod +x scripts/healthcheck.sh
-bash scripts/healthcheck.sh
+echo "=== [Deploy] 6. Verifying Production Health Endpoint ==="
+sleep 5
+HEALTH_OK=0
+for i in \$(seq 1 6); do
+    HTTP_CODE=\$(curl -s -o /dev/null -w "%{http_code}" http://localhost:80/api/health || echo "000")
+    if [ "\$HTTP_CODE" = "200" ]; then
+        echo "✅ Health check passed via Nginx (HTTP 200 on /api/health)"
+        HEALTH_OK=1
+        break
+    else
+        echo "⏳ Attempt \$i/6: /api/health returned HTTP \$HTTP_CODE, waiting 5s..."
+        sleep 5
+    fi
+done
 
-echo "=== [Deploy] 8. Cleaning up dangling Docker images ==="
+if [ "\$HEALTH_OK" -ne 1 ]; then
+    echo "❌ Health check failed! Recent logs:"
+    docker logs netflix-backend --tail 30 2>&1 || true
+    docker logs netflix-frontend --tail 30 2>&1 || true
+    exit 1
+fi
+
+echo "=== [Deploy] 7. Cleaning up dangling Docker images ==="
 docker image prune -af || true
 
 echo "=== [Deploy] Deployment Completed Successfully! ==="
 '@
 
-                                        \$deployScript | ssh -i "${winKeyPath}" -o StrictHostKeyChecking=no -o ConnectTimeout=60 -o LogLevel=ERROR "${targetUser}@${targetHost}" "bash -s"
+                                        \$deployB64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(\$deployScript.Replace("`r`n", "`n").Replace("`r", "`n")))
+                                        ssh -i "${winKeyPath}" -T -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=30 "${targetUser}@${targetHost}" "echo '\${deployB64}' | base64 -d | bash"
                                     """
                                 }
                             }
