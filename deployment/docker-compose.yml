@@ -85,4 +85,4 @@ networks:
 
 volumes:
   ollama_data:
-    name: netflix_ollama_data
+    name: ollama_data

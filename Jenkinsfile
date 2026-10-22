@@ -10,10 +10,10 @@ pipeline {
 
     parameters {
         choice(name: 'DEPLOY_MODE', choices: ['remote-ssh', 'local-agent'], description: 'Deployment Target: remote-ssh (Deploy to Target Server via SSH) or local-agent (Deploy on local Jenkins host)')
-        string(name: 'TARGET_HOST', defaultValue: '192.168.1.46', description: 'Target Server IP or Hostname (Default: 192.168.1.46)')
-        string(name: 'TARGET_USER', defaultValue: 'cubeai', description: 'SSH Username for target server (Default: cubeai)')
-        string(name: 'EC2_HOST', defaultValue: '192.168.1.46', description: 'Target Server IP (Legacy EC2_HOST alias)')
-        string(name: 'EC2_USER', defaultValue: 'cubeai', description: 'Target Server SSH User (Legacy EC2_USER alias)')
+        string(name: 'TARGET_HOST', defaultValue: '15.206.174.225', description: 'Target Server IP or Hostname (Default: 15.206.174.225)')
+        string(name: 'TARGET_USER', defaultValue: 'ubuntu', description: 'SSH Username for target server (Default: ubuntu)')
+        string(name: 'EC2_HOST', defaultValue: '15.206.174.225', description: 'Target Server IP (Legacy EC2_HOST alias)')
+        string(name: 'EC2_USER', defaultValue: 'ubuntu', description: 'Target Server SSH User (Legacy EC2_USER alias)')
         string(name: 'DOCKERHUB_USERNAME', defaultValue: 'nishanthsaravanan503', description: 'Docker Hub Username / Organization')
         string(name: 'GOOGLE_CLIENT_ID', defaultValue: '315922735623-r9kc8d4jaau51e52up31vgg2e2ehq5g4.apps.googleusercontent.com', description: 'Google Client ID build-arg for Frontend SPA')
         string(name: 'BACKEND_CPU_LIMIT', defaultValue: '0.80', description: 'Backend CPU Limit (Default: 0.80 core / 80%)')
@@ -211,23 +211,23 @@ pipeline {
                         }
 
                         if (params.DEPLOY_MODE == 'remote-ssh') {
-                            // Resolve target host (default to 192.168.1.46)
-                            def targetHost = '192.168.1.46'
-                            if (params.TARGET_HOST && params.TARGET_HOST != '18.221.229.239') {
+                            // Resolve target host (default to 15.206.174.225)
+                            def targetHost = '15.206.174.225'
+                            if (params.TARGET_HOST) {
                                 targetHost = params.TARGET_HOST.trim()
-                            } else if (params.EC2_HOST && params.EC2_HOST != '18.221.229.239') {
+                            } else if (params.EC2_HOST) {
                                 targetHost = params.EC2_HOST.trim()
                             }
 
                             echo "Target deployment host: ${targetHost}"
 
                             def executeRemoteDeploy = { String sshKeyPath, String sshUserFromCreds ->
-                                def targetUser = 'cubeai'
-                                if (params.TARGET_USER && params.TARGET_USER != 'ubuntu') {
+                                def targetUser = 'ubuntu'
+                                if (params.TARGET_USER) {
                                     targetUser = params.TARGET_USER.trim()
                                 } else if (sshUserFromCreds) {
                                     targetUser = sshUserFromCreds.trim()
-                                } else if (params.EC2_USER && params.EC2_USER != 'ubuntu') {
+                                } else if (params.EC2_USER) {
                                     targetUser = params.EC2_USER.trim()
                                 }
 

@@ -147,4 +147,22 @@
 - **Full-Stack Connectivity**:
   - Frontend floating widget `AIChatBox.jsx` -> POST `/api/v1/ai/chat` -> Backend `ai.controller.js` -> Ollama API `http://ollama:11434/api/chat`.
 
+## Update Target EC2 Host & IP Configuration to `15.206.174.225`
+- [x] 1. Update `Jenkinsfile`:
+  - Set default `TARGET_HOST` and `EC2_HOST` parameters to `15.206.174.225`.
+  - Set default `TARGET_USER` and `EC2_USER` parameters to `ubuntu`.
+  - Cleaned up fallback resolution in `stage('Deploy to Target Server')` to default to `15.206.174.225` and `ubuntu`.
+- [x] 2. Update `.env`:
+  - Set `CLIENT_URL=http://15.206.174.225`.
+- [x] 3. Update `deployment/jenkins_secretfile.env`:
+  - Set `CLIENT_URL=http://15.206.174.225`.
+- [x] 4. Update example templates:
+  - Updated `deployment/jenkins_secretfile.env.example` with `http://15.206.174.225`.
+- [x] 5. Verify configuration consistency across the workspace.
+
+### Target EC2 Host & IP Review
+- **Default Deployment Host**: `15.206.174.225`
+- **Default SSH User**: `ubuntu`
+- **Application URL**: `http://15.206.174.225` across `.env` and `jenkins_secretfile.env`
+- **Jenkinsfile**: Fully aligned for one-click deployment to the AWS EC2 instance without requiring manual parameter overrides.
 
