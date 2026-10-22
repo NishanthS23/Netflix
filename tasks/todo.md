@@ -166,3 +166,32 @@
 - **Application URL**: `http://15.206.174.225` across `.env` and `jenkins_secretfile.env`
 - **Jenkinsfile**: Fully aligned for one-click deployment to the AWS EC2 instance without requiring manual parameter overrides.
 
+## Local Docker Build, Push to Docker Hub & EC2 Deployment
+- [x] 1. Build backend Docker image locally tagged `nishanthsaravanan503/netflix-backend:latest`
+- [x] 2. Build frontend Docker image locally tagged `nishanthsaravanan503/netflix-frontend:latest` with build args
+- [x] 3. Push both images to Docker Hub (`docker push`)
+- [x] 4. Setup deployment folder, `docker-compose.yml`, and verified `.env` on EC2
+- [x] 5. Pull Docker Hub images on EC2 and start containers (`docker compose up -d`)
+- [x] 6. Verify full-stack deployment, AI status, and live website at `http://15.206.174.225`
+
+### Deployment & Verification Review
+- **Local Multi-Stage Build**:
+  - `nishanthsaravanan503/netflix-backend:latest`: Node.js 20 Alpine with PostgreSQL client, S3 support, and Ollama integration.
+  - `nishanthsaravanan503/netflix-frontend:latest`: Multi-stage build with Vite React SPA production bundle and Nginx Alpine server.
+- **Docker Hub Publishing**:
+  - Backend digest: `sha256:7e8dc6c54c10de079dcd16c449888c034653b9627fbb10a16ca6917d322517f0`
+  - Frontend digest: `sha256:4b21cbd39bea4eb9d3be7bec358c6c9012a89381394bbb90b84201bdd5afc1b5`
+- **EC2 Production Deployment**:
+  - Target Host: `15.206.174.225`
+  - Stack Directory: `/home/ubuntu/netflix-deploy`
+  - Containers Running:
+    - `netflix-frontend`: Port `80:80` (Up)
+    - `netflix-backend`: Port `8000` (Up)
+    - `netflix-ollama`: Port `11434:11434` (Up, using persistent `ollama_data` volume)
+- **Live Verifications**:
+  - AWS RDS PostgreSQL: Connected successfully via SSL (`netflix-clone.c3mgw0c6gmgt.ap-south-1.rds.amazonaws.com`).
+  - Database Schema: Tables `users` and `custom_videos` auto-initialized. User signup tested and verified.
+  - Ollama AI Service: Model `qwen2.5:0.5b` loaded, answering live chat queries (`isFallback: false`).
+  - Web UI: Fully operational at `http://15.206.174.225`.
+
+
