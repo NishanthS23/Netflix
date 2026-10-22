@@ -67,7 +67,7 @@ export const ENV_VARS = {
   DB_USER: sanitizeEnvString(process.env.DB_USER),
   DB_PASSWORD: sanitizeEnvString(process.env.DB_PASSWORD),
   DB_NAME: sanitizeEnvString(process.env.DB_NAME),
-  DB_SSL: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production',
+  DB_SSL: process.env.DB_SSL === 'false' ? false : (process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production'),
 
   // AWS S3 Storage configuration
   AWS_REGION: sanitizeEnvString(process.env.AWS_REGION) || 'us-east-1',
@@ -76,4 +76,8 @@ export const ENV_VARS = {
   AWS_S3_BUCKET_NAME: sanitizeEnvString(process.env.AWS_S3_BUCKET_NAME) || sanitizeEnvString(process.env.S3_BUCKET_NAME),
   S3_BUCKET_NAME: sanitizeEnvString(process.env.S3_BUCKET_NAME) || sanitizeEnvString(process.env.AWS_S3_BUCKET_NAME),
   AWS_S3_ENDPOINT: sanitizeEnvString(process.env.AWS_S3_ENDPOINT),
+
+  // Ollama AI Assistant configuration
+  OLLAMA_HOST: sanitizeEnvString(process.env.OLLAMA_HOST) || 'http://localhost:11434',
+  OLLAMA_MODEL: sanitizeEnvString(process.env.OLLAMA_MODEL) || 'qwen2.5:0.5b',
 };

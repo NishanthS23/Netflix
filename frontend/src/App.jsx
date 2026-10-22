@@ -17,6 +17,7 @@ import EmailVerification from './pages/EmailVerificationPage';
 import NotFound from './pages/NotFoundPage';
 import Footer from './components/Footer';
 import LoadingSpinner from './components/LoadingSpinner';
+import AIChatBox from './components/AIChatBox';
 import { useAuthStore } from './store/auth.store.js';
 
 function App() {
@@ -58,6 +59,7 @@ function App() {
         <Route path="/*" element={<NotFound />} />
       </Routes>
       <Footer />
+      <AIChatBox />
       <Toaster />
     </>
   );

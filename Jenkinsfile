@@ -16,6 +16,10 @@ pipeline {
         string(name: 'EC2_USER', defaultValue: 'cubeai', description: 'Target Server SSH User (Legacy EC2_USER alias)')
         string(name: 'DOCKERHUB_USERNAME', defaultValue: 'nishanthsaravanan503', description: 'Docker Hub Username / Organization')
         string(name: 'GOOGLE_CLIENT_ID', defaultValue: '315922735623-r9kc8d4jaau51e52up31vgg2e2ehq5g4.apps.googleusercontent.com', description: 'Google Client ID build-arg for Frontend SPA')
+        string(name: 'BACKEND_CPU_LIMIT', defaultValue: '0.80', description: 'Backend CPU Limit (Default: 0.80 core / 80%)')
+        string(name: 'BACKEND_MEM_LIMIT', defaultValue: '384M', description: 'Backend Memory Limit (Default: 384M)')
+        string(name: 'FRONTEND_CPU_LIMIT', defaultValue: '0.40', description: 'Frontend CPU Limit (Default: 0.40 core / 40%)')
+        string(name: 'FRONTEND_MEM_LIMIT', defaultValue: '128M', description: 'Frontend Memory Limit (Default: 128M)')
     }
 
     environment {
@@ -33,6 +37,12 @@ pipeline {
         DH_USER            = "${params.DOCKERHUB_USERNAME}"
         BACKEND_IMAGE      = "${params.DOCKERHUB_USERNAME}/netflix-backend"
         FRONTEND_IMAGE     = "${params.DOCKERHUB_USERNAME}/netflix-frontend"
+
+        // Resource Limitations
+        BACKEND_CPU_LIMIT  = "${params.BACKEND_CPU_LIMIT ?: '0.80'}"
+        BACKEND_MEM_LIMIT  = "${params.BACKEND_MEM_LIMIT ?: '384M'}"
+        FRONTEND_CPU_LIMIT = "${params.FRONTEND_CPU_LIMIT ?: '0.40'}"
+        FRONTEND_MEM_LIMIT = "${params.FRONTEND_MEM_LIMIT ?: '128M'}"
     }
 
     stages {
@@ -185,7 +195,7 @@ pipeline {
                                 returnStdout: true
                             ).trim()
                             composeB64 = sh(
-                                script: "base64 < docker-compose.yml | tr -d '\\r\\n'",
+                                script: "base64 < deployment/docker-compose.yml | tr -d '\\r\\n'",
                                 returnStdout: true
                             ).trim()
                         } else {
@@ -195,7 +205,7 @@ pipeline {
                                 returnStdout: true
                             ).trim()
                             composeB64 = powershell(
-                                script: "[Convert]::ToBase64String([System.IO.File]::ReadAllBytes('docker-compose.yml'))",
+                                script: "[Convert]::ToBase64String([System.IO.File]::ReadAllBytes('deployment/docker-compose.yml'))",
                                 returnStdout: true
                             ).trim()
                         }
@@ -244,6 +254,10 @@ fi
 echo "=== [Deploy] 2. Writing docker-compose.yml and .env ==="
 echo "${composeB64}" | base64 -d > docker-compose.yml
 echo "${envB64}" | base64 -d > .env
+grep -q '^BACKEND_CPU_LIMIT=' .env 2>/dev/null || echo "BACKEND_CPU_LIMIT=${env.BACKEND_CPU_LIMIT}" >> .env
+grep -q '^BACKEND_MEM_LIMIT=' .env 2>/dev/null || echo "BACKEND_MEM_LIMIT=${env.BACKEND_MEM_LIMIT}" >> .env
+grep -q '^FRONTEND_CPU_LIMIT=' .env 2>/dev/null || echo "FRONTEND_CPU_LIMIT=${env.FRONTEND_CPU_LIMIT}" >> .env
+grep -q '^FRONTEND_MEM_LIMIT=' .env 2>/dev/null || echo "FRONTEND_MEM_LIMIT=${env.FRONTEND_MEM_LIMIT}" >> .env
 chmod 600 .env
 echo "Configuration files deployed successfully (no git repository required)"
 
@@ -272,6 +286,11 @@ fi
 echo "=== [Deploy] 5. Starting Application Containers ==="
 docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
 \$DOCKER_COMPOSE --env-file .env up -d --remove-orphans
+
+if docker ps --format '{{.Names}}' | grep -q 'netflix-ollama'; then
+    echo "Ensuring Qwen 0.6B model is available in Ollama..."
+    docker exec netflix-ollama ollama pull qwen2.5:0.5b 2>/dev/null || true
+fi
 
 echo "=== [Deploy] 6. Verifying Production Health Endpoint ==="
 sleep 5
@@ -328,6 +347,10 @@ fi
 echo "=== [Deploy] 2. Writing docker-compose.yml and .env ==="
 echo "${composeB64}" | base64 -d > docker-compose.yml
 echo "${envB64}" | base64 -d > .env
+grep -q '^BACKEND_CPU_LIMIT=' .env 2>/dev/null || echo "BACKEND_CPU_LIMIT=${env.BACKEND_CPU_LIMIT}" >> .env
+grep -q '^BACKEND_MEM_LIMIT=' .env 2>/dev/null || echo "BACKEND_MEM_LIMIT=${env.BACKEND_MEM_LIMIT}" >> .env
+grep -q '^FRONTEND_CPU_LIMIT=' .env 2>/dev/null || echo "FRONTEND_CPU_LIMIT=${env.FRONTEND_CPU_LIMIT}" >> .env
+grep -q '^FRONTEND_MEM_LIMIT=' .env 2>/dev/null || echo "FRONTEND_MEM_LIMIT=${env.FRONTEND_MEM_LIMIT}" >> .env
 chmod 600 .env
 echo "Configuration files deployed successfully (no git repository required)"
 
@@ -356,6 +379,11 @@ fi
 echo "=== [Deploy] 5. Starting Application Containers ==="
 docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
 \$DOCKER_COMPOSE --env-file .env up -d --remove-orphans
+
+if docker ps --format '{{.Names}}' | grep -q 'netflix-ollama'; then
+    echo "Ensuring Qwen 0.6B model is available in Ollama..."
+    docker exec netflix-ollama ollama pull qwen2.5:0.5b 2>/dev/null || true
+fi
 
 echo "=== [Deploy] 6. Verifying Production Health Endpoint ==="
 sleep 5
@@ -414,18 +442,22 @@ echo "=== [Deploy] Deployment Completed Successfully! ==="
                                     set -e
                                     echo "=== [Local] 1. Applying .env from Jenkins Secret File ==="
                                     echo "${envB64}" | base64 -d > .env
+                                    grep -q '^BACKEND_CPU_LIMIT=' .env 2>/dev/null || echo "BACKEND_CPU_LIMIT=${env.BACKEND_CPU_LIMIT}" >> .env
+                                    grep -q '^BACKEND_MEM_LIMIT=' .env 2>/dev/null || echo "BACKEND_MEM_LIMIT=${env.BACKEND_MEM_LIMIT}" >> .env
+                                    grep -q '^FRONTEND_CPU_LIMIT=' .env 2>/dev/null || echo "FRONTEND_CPU_LIMIT=${env.FRONTEND_CPU_LIMIT}" >> .env
+                                    grep -q '^FRONTEND_MEM_LIMIT=' .env 2>/dev/null || echo "FRONTEND_MEM_LIMIT=${env.FRONTEND_MEM_LIMIT}" >> .env
                                     chmod 600 .env
 
                                     echo "=== [Local] 2. Pulling Docker Images ==="
-                                    docker compose --env-file .env pull
+                                    docker compose -f deployment/docker-compose.yml --env-file .env pull
 
                                     echo "=== [Local] 3. Restarting Application Containers ==="
                                     docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
-                                    docker compose --env-file .env up -d --remove-orphans
+                                    docker compose -f deployment/docker-compose.yml --env-file .env up -d --remove-orphans
 
                                     echo "=== [Local] 4. Running Production Health Check ==="
-                                    chmod +x scripts/healthcheck.sh
-                                    bash scripts/healthcheck.sh
+                                    chmod +x deployment/scripts/healthcheck.sh
+                                    bash deployment/scripts/healthcheck.sh
 
                                     echo "=== [Local] 5. Cleaning up old images ==="
                                     docker image prune -af || true
@@ -434,22 +466,23 @@ echo "=== [Deploy] Deployment Completed Successfully! ==="
                                 powershell """
                                     echo "=== [Local] 1. Applying .env from Jenkins Secret File ==="
                                     [System.IO.File]::WriteAllBytes('.env', [Convert]::FromBase64String('${envB64}'))
+                                    Add-Content -Path '.env' -Value "`nBACKEND_CPU_LIMIT=${env.BACKEND_CPU_LIMIT}`nBACKEND_MEM_LIMIT=${env.BACKEND_MEM_LIMIT}`nFRONTEND_CPU_LIMIT=${env.FRONTEND_CPU_LIMIT}`nFRONTEND_MEM_LIMIT=${env.FRONTEND_MEM_LIMIT}"
 
                                     echo "=== [Local] 2. Pulling Docker Images ==="
                                     if (Get-Command docker-compose -ErrorAction SilentlyContinue) {
-                                        docker-compose --env-file .env pull
+                                        docker-compose -f deployment/docker-compose.yml --env-file .env pull
                                         echo "=== [Local] 3. Restarting Application Containers ==="
                                         docker rm -f netflix-frontend netflix-backend netflix-db 2>\$null
-                                        docker-compose --env-file .env up -d --remove-orphans
+                                        docker-compose -f deployment/docker-compose.yml --env-file .env up -d --remove-orphans
                                     } else {
-                                        docker compose --env-file .env pull
+                                        docker compose -f deployment/docker-compose.yml --env-file .env pull
                                         echo "=== [Local] 3. Restarting Application Containers ==="
                                         docker rm -f netflix-frontend netflix-backend netflix-db 2>\$null
-                                        docker compose --env-file .env up -d --remove-orphans
+                                        docker compose -f deployment/docker-compose.yml --env-file .env up -d --remove-orphans
                                     }
 
                                     echo "=== [Local] 4. Running Production Health Check ==="
-                                    bash scripts/healthcheck.sh
+                                    bash deployment/scripts/healthcheck.sh
 
                                     echo "=== [Local] 5. Cleaning up old images ==="
                                     docker image prune -af

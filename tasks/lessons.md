@@ -27,4 +27,10 @@
 - **Non-Interactive OpenSSH Hangs in CI/CD**: When publickey authentication fails or an unrecognized host key appears, OpenSSH prompts interactively for a password or confirmation. In a headless CI runner (Jenkins), this hangs execution indefinitely. **Fix**: Always pass `-T -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=30` so authentication failures fail fast with diagnostic output instead of hanging.
 - **Docker Compose Plugin on Minimal Linux Installations**: Ubuntu minimal/cloud images may ship with `docker.io` without `docker-compose-plugin`. In automated deployment scripts, include a user-space fallback (`mkdir -p ~/.docker/cli-plugins && curl -sSL ... -o ~/.docker/cli-plugins/docker-compose && chmod +x ...`) so deployments do not halt for lack of sudo permissions.
 
+## AWS ECS & Cloud Console GUI Guidance
+- **Interactive Screenshot Workflow**: In cloud console wizards (e.g. AWS ECS Cluster, ALB Listeners), identify exact active states from user screenshots, confirm correct selections, and guide downstream form fields before the user scrolls.
+- **Port Collision on Existing Listeners**: When attaching ECS services to an existing Application Load Balancer, always select "Use an existing listener" (e.g. Port 80) rather than "Create new listener", avoiding `Listener port already exists` errors.
+- **VPC S3 Gateway Endpoint for Private Tasks**: When tasks run in `awsvpc` mode on EC2 without assigned public IPs, S3 calls will time out unless a free VPC Gateway Endpoint (`com.amazonaws.<region>.s3`) is attached to the route table.
+
+
 

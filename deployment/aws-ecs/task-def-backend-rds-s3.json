@@ -1,0 +1,63 @@
+{
+  "family": "netflix-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::530700193656:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::530700193656:role/netflixTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "netflix-backend",
+      "image": "530700193656.dkr.ecr.ap-south-1.amazonaws.com/netflix-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp",
+          "name": "backend-8000"
+        }
+      ],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "SERVER_PORT", "value": "8000" },
+        { "name": "CLIENT_URL", "value": "http://netflix-alb-266432265.ap-south-1.elb.amazonaws.com" },
+        { "name": "DB_HOST", "value": "<RDS_ENDPOINT>" },
+        { "name": "DB_PORT", "value": "5432" },
+        { "name": "DB_USER", "value": "postgres" },
+        { "name": "DB_PASSWORD", "value": "NetflixSecure2026!" },
+        { "name": "DB_NAME", "value": "netflix_db" },
+        { "name": "DB_SSL", "value": "true" },
+        { "name": "AWS_REGION", "value": "ap-south-1" },
+        { "name": "AWS_S3_BUCKET_NAME", "value": "netflix-media-storage-530700193656" },
+        { "name": "JWT_SECRET", "value": "netflix_production_jwt_secret_key_2026" },
+        { "name": "TMDB_API_KEY", "value": "b96874a2b95b45ba0b1ba5a9da968036" },
+        { "name": "SMTP_HOST", "value": "smtp.gmail.com" },
+        { "name": "SMTP_PORT", "value": "587" },
+        { "name": "SMTP_SECURE", "value": "false" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/netflix-backend",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget -q --spider http://127.0.0.1:8000/api/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 15
+      }
+    }
+  ]
+}

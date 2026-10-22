@@ -1,0 +1,44 @@
+{
+  "family": "netflix-frontend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "EC2"
+  ],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::530700193656:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "netflix-frontend",
+      "image": "530700193656.dkr.ecr.ap-south-1.amazonaws.com/netflix-frontend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80,
+          "protocol": "tcp",
+          "name": "frontend-80"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/netflix-frontend",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget -q --spider http://localhost/ || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
+      }
+    }
+  ]
+}

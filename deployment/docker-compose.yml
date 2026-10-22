@@ -1,0 +1,88 @@
+services:
+  # Backend Service (Node.js & Express connected to AWS RDS PostgreSQL)
+  backend:
+    image: ${DOCKERHUB_USERNAME:-nishanthsaravanan503}/netflix-backend:latest
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: netflix-backend
+    restart: unless-stopped
+    expose:
+      - "8000"
+    env_file:
+      - path: ../.env
+        required: false
+      - path: .env
+        required: false
+    environment:
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:0.5b}
+    deploy:
+      resources:
+        limits:
+          cpus: '${BACKEND_CPU_LIMIT:-0.80}'
+          memory: ${BACKEND_MEM_LIMIT:-384M}
+        reservations:
+          cpus: '${BACKEND_CPU_RESERVATION:-0.20}'
+          memory: ${BACKEND_MEM_RESERVATION:-128M}
+    networks:
+      - netflix-network
+
+  # Frontend Service (React + Vite served via Nginx)
+  frontend:
+    image: ${DOCKERHUB_USERNAME:-nishanthsaravanan503}/netflix-frontend:latest
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    container_name: netflix-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '${FRONTEND_CPU_LIMIT:-0.40}'
+          memory: ${FRONTEND_MEM_LIMIT:-128M}
+        reservations:
+          cpus: '${FRONTEND_CPU_RESERVATION:-0.10}'
+          memory: ${FRONTEND_MEM_RESERVATION:-32M}
+    networks:
+      - netflix-network
+
+  # Ollama AI Service (Running Qwen 0.6B LLM)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: netflix-ollama
+    restart: unless-stopped
+    expose:
+      - "11434"
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=24h
+    deploy:
+      resources:
+        limits:
+          cpus: '${OLLAMA_CPU_LIMIT:-1.20}'
+          memory: ${OLLAMA_MEM_LIMIT:-800M}
+        reservations:
+          cpus: '${OLLAMA_CPU_RESERVATION:-0.40}'
+          memory: ${OLLAMA_MEM_RESERVATION:-400M}
+    networks:
+      - netflix-network
+
+networks:
+  netflix-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
+    name: netflix_ollama_data

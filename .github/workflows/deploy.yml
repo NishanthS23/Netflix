@@ -154,15 +154,15 @@ jobs:
             if [ -n "${{ env.CLEAN_DH_TOKEN }}" ]; then
               echo "${{ env.CLEAN_DH_TOKEN }}" | docker login -u "${{ env.CLEAN_DH_USER }}" --password-stdin
             fi
-            docker compose --env-file .env pull
+            docker compose -f deployment/docker-compose.yml --env-file .env pull
 
             echo "=== 5. Starting Application with Docker Compose ==="
             docker rm -f netflix-frontend netflix-backend netflix-db 2>/dev/null || true
-            docker compose --env-file .env up -d --remove-orphans
+            docker compose -f deployment/docker-compose.yml --env-file .env up -d --remove-orphans
 
             echo "=== 6. Running Health Check (via Nginx Port 80) ==="
-            chmod +x scripts/healthcheck.sh
-            bash scripts/healthcheck.sh
+            chmod +x deployment/scripts/healthcheck.sh
+            bash deployment/scripts/healthcheck.sh
 
             echo "=== 7. Cleanup dangling & old images ==="
             docker image prune -af || true
