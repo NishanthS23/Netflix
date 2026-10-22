@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import pg from 'pg';
 import { ENV_VARS } from './env.config.js';
 import { getCurrentDateTime } from '../helpers/helper.js';
@@ -6,20 +8,48 @@ const { Pool } = pg;
 
 const isSsl = ENV_VARS.DB_SSL === true || ENV_VARS.DB_SSL === 'true';
 
+// Detect and load AWS RDS CA root bundle if present (e.g. global-bundle.pem)
+let sslConfig = false;
+if (isSsl) {
+  const possibleCaPaths = [
+    process.env.DB_CA_PATH,
+    path.resolve(process.cwd(), 'global-bundle.pem'),
+    path.resolve(process.cwd(), 'config', 'global-bundle.pem'),
+    '/app/global-bundle.pem',
+  ].filter(Boolean);
+
+  const foundCaPath = possibleCaPaths.find((p) => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      return false;
+    }
+  });
+
+  if (foundCaPath) {
+    sslConfig = {
+      rejectUnauthorized: true,
+      ca: fs.readFileSync(foundCaPath).toString(),
+    };
+  } else {
+    sslConfig = { rejectUnauthorized: false };
+  }
+}
+
 let poolConfig = {
   host: ENV_VARS.DB_HOST,
   port: ENV_VARS.DB_PORT,
   user: ENV_VARS.DB_USER,
   password: String(ENV_VARS.DB_PASSWORD || ''),
   database: ENV_VARS.DB_NAME,
-  ssl: isSsl ? { rejectUnauthorized: false } : false,
+  ssl: sslConfig,
 };
 
 if (ENV_VARS.DATABASE_URL && ENV_VARS.DATABASE_URL.trim() !== '') {
   const cleanConnectionString = ENV_VARS.DATABASE_URL.replace(/[\?&]sslmode=[^&]+/gi, '');
   poolConfig = {
     connectionString: cleanConnectionString,
-    ssl: isSsl ? { rejectUnauthorized: false } : false,
+    ssl: sslConfig,
   };
 }
 
